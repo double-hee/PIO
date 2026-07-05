@@ -281,11 +281,20 @@
             <div class="hl-wrap">
               <video id="hlPreview" autoplay muted playsinline class="hl-preview"></video>
               <div class="hl-overlay">
+                <!-- 상단: 상태 표시 -->
                 <div style="display:flex;justify-content:space-between;align-items:center">
-                  <div class="hl-badge"><span class="hl-rec-dot"></span> <span id="hlTime">0:00</span></div>
+                  <div class="hl-badge" id="hlRecBadge" style="visibility:hidden"><span class="hl-rec-dot"></span> <span id="hlTime">0:00</span></div>
                   <div class="hl-speed">⚡ 10x</div>
                 </div>
-                <button class="hl-stop-btn" onclick="stopHyperlapse()" title="촬영 완료">⏹</button>
+                <!-- 하단: 버튼 -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px 4px">
+                  <button onclick="flipHyperlapseCamera()" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.4);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">🔄</button>
+                  <!-- 대기: 녹화 시작 버튼 -->
+                  <button id="hlRecordBtn" onclick="beginRecording()" style="width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:rgba(255,50,50,.9);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px;transition:transform .1s">⏺</button>
+                  <!-- 녹화 중: 정지 버튼 -->
+                  <button id="hlStopBtn" onclick="stopHyperlapse()" style="width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:rgba(255,50,50,.85);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:26px">⏹</button>
+                  <div style="width:44px"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -1007,7 +1016,8 @@ var HL = {
   chunks:[], interval:null, timerInterval:null,
   canvas:null, ctx:null, videoEl:null, elapsed:0
 };
-var HL_CAPTURE_MS = 333; // 1프레임/333ms → 30fps 재생 = 10배속
+var HL_CAPTURE_MS  = 333; // 1프레임/333ms → 30fps 재생 = 10배속
+var HL_FACING_MODE = 'environment'; // 현재 카메라 방향
 
 function startHyperlapse(){
   if(selectedFiles.length >= 5){
@@ -1023,55 +1033,32 @@ function startHyperlapse(){
     return;
   }
   navigator.mediaDevices.getUserMedia({
-    video:{ facingMode:'environment', width:{ideal:1280}, height:{ideal:720} },
+    video:{ facingMode:HL_FACING_MODE, width:{ideal:1280}, height:{ideal:720} },
     audio:false
   }).then(function(stream){
     HL.stream  = stream;
     HL.chunks  = [];
     HL.elapsed = 0;
-    HL.active  = true;
+    HL.active  = false; // 아직 녹화 시작 전
 
     // 뷰파인더에 카메라 연결
     var preview = document.getElementById('hlPreview');
     preview.srcObject = stream;
     preview.play();
 
-    // 캔버스 설정 (프레임 캡처용)
+    // 캔버스 설정
     HL.canvas = document.createElement('canvas');
     HL.canvas.width  = 1280;
     HL.canvas.height = 720;
     HL.ctx = HL.canvas.getContext('2d');
     HL.videoEl = preview;
 
-    // 지원 코덱 확인
-    var mime = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4']
-      .find(function(t){ return MediaRecorder.isTypeSupported(t); }) || '';
-
-    // 캔버스 스트림을 30fps로 녹화 (내용은 3fps로만 업데이트 → 10x)
-    var canvasStream = HL.canvas.captureStream(30);
-    HL.recorder = new MediaRecorder(canvasStream, mime ? {mimeType:mime} : {});
-    HL.recorder.ondataavailable = function(e){ if(e.data.size>0) HL.chunks.push(e.data); };
-    HL.recorder.onstop = finishHyperlapse;
-    HL.recorder.start(100);
-
-    // 333ms마다 카메라 프레임을 캔버스에 그림 (10x 하이퍼랩스)
-    HL.interval = setInterval(function(){
-      if(HL.videoEl.readyState >= 2){
-        HL.ctx.drawImage(HL.videoEl, 0, 0, 1280, 720);
-      }
-    }, HL_CAPTURE_MS);
-
-    // 경과시간 타이머
-    HL.timerInterval = setInterval(function(){
-      HL.elapsed++;
-      var m = Math.floor(HL.elapsed/60), s = HL.elapsed%60;
-      document.getElementById('hlTime').textContent =
-        m+':'+(s<10?'0':'')+s;
-    }, 1000);
-
-    // UI 전환
+    // UI 전환 (녹화 대기 상태)
     document.getElementById('hlUI').style.display = 'block';
     document.getElementById('photoAddRow').style.display = 'none';
+    document.getElementById('hlRecordBtn').style.display = 'flex';
+    document.getElementById('hlStopBtn').style.display = 'none';
+    document.getElementById('hlRecBadge').style.visibility = 'hidden';
 
   }).catch(function(e){
     var isHttps = location.protocol === 'https:';
@@ -1089,14 +1076,68 @@ function startHyperlapse(){
   });
 }
 
+async function flipHyperlapseCamera(){
+  HL_FACING_MODE = HL_FACING_MODE === 'environment' ? 'user' : 'environment';
+  // 현재 스트림 교체 (녹화는 캔버스 기준이라 중단 없이 유지)
+  if(HL.stream) HL.stream.getTracks().forEach(function(t){ t.stop(); });
+  try {
+    var newStream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:HL_FACING_MODE, width:{ideal:1280}, height:{ideal:720} },
+      audio:false
+    });
+    HL.stream = newStream;
+    var preview = document.getElementById('hlPreview');
+    preview.srcObject = newStream;
+    preview.play();
+    HL.videoEl = preview;
+  } catch(e){ HL_FACING_MODE = HL_FACING_MODE === 'user' ? 'environment' : 'user'; }
+}
+
+function beginRecording(){
+  if(HL.active) return;
+  HL.active  = true;
+  HL.chunks  = [];
+  HL.elapsed = 0;
+
+  // 지원 코덱 확인
+  var mime = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4']
+    .find(function(t){ return MediaRecorder.isTypeSupported(t); }) || '';
+
+  // 캔버스 스트림 30fps 녹화 (내용은 3fps → 10x)
+  var canvasStream = HL.canvas.captureStream(30);
+  HL.recorder = new MediaRecorder(canvasStream, mime ? {mimeType:mime} : {});
+  HL.recorder.ondataavailable = function(e){ if(e.data.size>0) HL.chunks.push(e.data); };
+  HL.recorder.onstop = finishHyperlapse;
+  HL.recorder.start(100);
+
+  // 333ms마다 프레임 캡처
+  HL.interval = setInterval(function(){
+    if(HL.videoEl.readyState >= 2){
+      HL.ctx.drawImage(HL.videoEl, 0, 0, 1280, 720);
+    }
+  }, HL_CAPTURE_MS);
+
+  // 경과시간 타이머
+  HL.timerInterval = setInterval(function(){
+    HL.elapsed++;
+    var m = Math.floor(HL.elapsed/60), s = HL.elapsed%60;
+    document.getElementById('hlTime').textContent = m+':'+(s<10?'0':'')+s;
+  }, 1000);
+
+  // UI: 녹화 버튼 → 정지 버튼
+  document.getElementById('hlRecordBtn').style.display = 'none';
+  document.getElementById('hlStopBtn').style.display   = 'flex';
+  document.getElementById('hlRecBadge').style.visibility = 'visible';
+}
+
 function stopHyperlapse(){
-  if(!HL.active) return;
   HL.active = false;
   clearInterval(HL.interval);
   clearInterval(HL.timerInterval);
-  HL.recorder.stop();
-  HL.stream.getTracks().forEach(function(t){ t.stop(); });
+  if(HL.recorder && HL.recorder.state !== 'inactive') HL.recorder.stop();
+  if(HL.stream) HL.stream.getTracks().forEach(function(t){ t.stop(); });
   document.getElementById('hlUI').style.display = 'none';
+  document.getElementById('photoAddRow').style.display = selectedFiles.length < 5 ? 'flex' : 'none';
 }
 
 function finishHyperlapse(){
@@ -1110,21 +1151,39 @@ function finishHyperlapse(){
 
 async function shareMedia(){
   if(!navigator.share){
-    alert('이 브라우저에서는 공유 기능을 지원하지 않습니다. 갤러리 앱에서 직접 공유해 주세요.');
+    downloadMediaFiles();
     return;
   }
   try {
-    var shareData = { files: selectedFiles, title: 'PIO 3기 챌린지 운동 인증' };
-    // 파일 공유 지원 여부 확인
+    var shareData = { files: selectedFiles.slice(), title: 'PIO 3기 챌린지 운동 인증' };
     if(navigator.canShare && navigator.canShare(shareData)){
       await navigator.share(shareData);
     } else {
-      // 파일 공유 미지원 시 텍스트만 공유
+      // 파일 공유 미지원 → 텍스트만 공유
       await navigator.share({ title:'PIO 3기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
     }
   } catch(e){
-    if(e.name !== 'AbortError') alert('공유 중 오류가 발생했습니다.');
+    if(e.name === 'AbortError') return; // 사용자 취소
+    // 공유 실패 → 파일 다운로드 폴백
+    downloadMediaFiles();
   }
+}
+
+function downloadMediaFiles(){
+  if(!selectedFiles.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
+  selectedFiles.forEach(function(file, i){
+    var url = URL.createObjectURL(file);
+    var a   = document.createElement('a');
+    a.href  = url;
+    a.download = file.name || ('PIO운동인증_'+(i+1));
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  });
+  setTimeout(function(){
+    alert('📥 파일이 다운로드됐습니다.\n갤러리 앱에서 열어 공유해 주세요!');
+  }, 500);
 }
 
 /* ── 유틸 ── */
