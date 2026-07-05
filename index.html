@@ -92,19 +92,6 @@
     .stat-card:hover{border-color:var(--accent2);transform:translateY(-2px);}
     .stat-num{font-size:24px;font-weight:100;color:var(--accent);line-height:1;}
     .stat-lbl{font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px;text-transform:uppercase;}
-    /* 하이퍼랩스 뷰파인더 */
-    .hl-wrap{border-radius:14px;overflow:hidden;background:#000;position:relative;width:100%;aspect-ratio:9/16;max-height:360px;}
-    .hl-preview{width:100%;height:100%;object-fit:cover;display:block;}
-    .hl-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:12px;}
-    .hl-badge{align-self:flex-start;background:rgba(0,0,0,.6);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;}
-    .hl-rec-dot{width:8px;height:8px;border-radius:50%;background:#ff4444;animation:blink 1s step-start infinite;}
-    @keyframes blink{50%{opacity:0}}
-    .hl-speed{background:rgba(0,229,160,.25);border:1px solid var(--accent);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;color:var(--accent);align-self:flex-end;}
-    .hl-stop-btn{width:56px;height:56px;border-radius:50%;border:3px solid #fff;background:rgba(255,50,50,.85);cursor:pointer;align-self:center;margin-bottom:8px;font-size:22px;display:flex;align-items:center;justify-content:center;transition:transform .1s;}
-    .hl-stop-btn:active{transform:scale(.9);}
-    .hl-start-btn{background:linear-gradient(135deg,#00e5a0,#00b8ff);width:100%;padding:13px;border-radius:14px;border:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:15px;font-weight:700;color:#091510;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
-    .hl-start-btn:hover{transform:translateY(-1px);box-shadow:0 0 24px rgba(0,229,160,.4);}
-
     /* 사진 등록 */
     .photo-section{display:flex;flex-direction:column;gap:12px;}
     .photo-add-row{display:flex;gap:8px;}
@@ -275,29 +262,7 @@
 
         <!-- 사진/동영상 등록 -->
         <div class="photo-section">
-          <div class="flabel" style="margin-bottom:0">📸 사진/동영상 등록 <span style="color:var(--muted);font-weight:400;letter-spacing:0">(선택 · 최대 5개)</span></div>
-          <!-- 하이퍼랩스 뷰파인더 (녹화 중에만 표시) -->
-          <div id="hlUI" style="display:none">
-            <div class="hl-wrap">
-              <video id="hlPreview" autoplay muted playsinline class="hl-preview"></video>
-              <div class="hl-overlay">
-                <!-- 상단: 상태 표시 -->
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <div class="hl-badge" id="hlRecBadge" style="visibility:hidden"><span class="hl-rec-dot"></span> <span id="hlTime">0:00</span></div>
-                  <div class="hl-speed">⚡ 10x</div>
-                </div>
-                <!-- 하단: 버튼 -->
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 8px 4px">
-                  <button onclick="flipHyperlapseCamera()" style="width:44px;height:44px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.4);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center">🔄</button>
-                  <!-- 대기: 녹화 시작 버튼 -->
-                  <button id="hlRecordBtn" onclick="beginRecording()" style="width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:rgba(255,50,50,.9);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px;transition:transform .1s">⏺</button>
-                  <!-- 녹화 중: 정지 버튼 -->
-                  <button id="hlStopBtn" onclick="stopHyperlapse()" style="width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:rgba(255,50,50,.85);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:26px">⏹</button>
-                  <div style="width:44px"></div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div class="flabel" style="margin-bottom:0">📸 사진 등록 <span style="color:var(--muted);font-weight:400;letter-spacing:0">(선택 · 최대 5개)</span></div>
           <div class="photo-previews" id="photoPreviews"></div>
           <div class="photo-add-row" id="photoAddRow">
             <button class="photo-add-btn" onclick="triggerFileInput('gallery')">
@@ -306,11 +271,8 @@
             <button class="photo-add-btn" onclick="triggerFileInput('photo')">
               <span>📷</span> 사진 찍기
             </button>
-            <button class="photo-add-btn" onclick="startHyperlapse()">
-              <span>⚡</span> 하이퍼랩스 10x
-            </button>
           </div>
-          <input type="file" id="galleryInput" accept="image/*,video/*" multiple style="display:none" onchange="onFilesSelected(this.files)">
+          <input type="file" id="galleryInput" accept="image/*" multiple style="display:none" onchange="onFilesSelected(this.files)">
           <input type="file" id="photoCapture" accept="image/*" capture="environment" style="display:none" onchange="onFilesSelected(this.files)">
           <button class="share-btn" id="shareBtn" style="display:none" onclick="shareMedia()">
             <span>📤</span> 공유하기
@@ -944,14 +906,19 @@ function searchPersonal(){
 /* ── 사진/동영상 등록 ── */
 var selectedFiles = []; // 선택된 파일 배열 (최대 2개)
 
+
+
 function triggerFileInput(type){
   if(selectedFiles.length >= 5){
-    alert('사진/동영상은 최대 5개까지 등록할 수 있습니다.');
+    alert('사진은 최대 5개까지 등록할 수 있습니다.');
     return;
   }
   if(type==='photo'){
     document.getElementById('photoCapture').value='';
     document.getElementById('photoCapture').click();
+  } else if(type==='video'){
+    document.getElementById('videoCapture').value='';
+    document.getElementById('videoCapture').click();
   } else if(type==='video'){
     document.getElementById('videoCapture').value='';
     document.getElementById('videoCapture').click();
@@ -1007,145 +974,6 @@ function renderPhotoPreviews(){
 
 function removeFile(idx){
   selectedFiles.splice(idx, 1);
-  renderPhotoPreviews();
-}
-
-/* ── 하이퍼랩스 (인앱 10x 타임랩스) ── */
-var HL = {
-  active:false, stream:null, recorder:null,
-  chunks:[], interval:null, timerInterval:null,
-  canvas:null, ctx:null, videoEl:null, elapsed:0
-};
-var HL_CAPTURE_MS  = 333; // 1프레임/333ms → 30fps 재생 = 10배속
-var HL_FACING_MODE = 'environment'; // 현재 카메라 방향
-
-function startHyperlapse(){
-  if(selectedFiles.length >= 5){
-    alert('사진/동영상은 최대 5개까지 등록할 수 있습니다.');
-    return;
-  }
-  if(location.protocol !== 'https:'){
-    alert('하이퍼랩스 기능은 HTTPS 환경에서만 작동합니다.\nNetlify에 배포 후 사용해 주세요.');
-    return;
-  }
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    alert('이 브라우저는 카메라 접근을 지원하지 않습니다.');
-    return;
-  }
-  navigator.mediaDevices.getUserMedia({
-    video:{ facingMode:HL_FACING_MODE, width:{ideal:1280}, height:{ideal:720} },
-    audio:false
-  }).then(function(stream){
-    HL.stream  = stream;
-    HL.chunks  = [];
-    HL.elapsed = 0;
-    HL.active  = false; // 아직 녹화 시작 전
-
-    // 뷰파인더에 카메라 연결
-    var preview = document.getElementById('hlPreview');
-    preview.srcObject = stream;
-    preview.play();
-
-    // 캔버스 설정
-    HL.canvas = document.createElement('canvas');
-    HL.canvas.width  = 1280;
-    HL.canvas.height = 720;
-    HL.ctx = HL.canvas.getContext('2d');
-    HL.videoEl = preview;
-
-    // UI 전환 (녹화 대기 상태)
-    document.getElementById('hlUI').style.display = 'block';
-    document.getElementById('photoAddRow').style.display = 'none';
-    document.getElementById('hlRecordBtn').style.display = 'flex';
-    document.getElementById('hlStopBtn').style.display = 'none';
-    document.getElementById('hlRecBadge').style.visibility = 'hidden';
-
-  }).catch(function(e){
-    var isHttps = location.protocol === 'https:';
-    var msg;
-    if(!isHttps){
-      msg = '하이퍼랩스 기능은 HTTPS 환경에서만 작동합니다.\nNetlify에 배포 후 사용해 주세요.';
-    } else if(e.name==='NotAllowedError'){
-      msg = '카메라 권한을 허용해 주세요.\n(브라우저 설정 → 카메라 → 허용)';
-    } else if(e.name==='NotFoundError'){
-      msg = '카메라를 찾을 수 없습니다.';
-    } else {
-      msg = '카메라를 열 수 없습니다: '+e.message;
-    }
-    alert(msg);
-  });
-}
-
-async function flipHyperlapseCamera(){
-  HL_FACING_MODE = HL_FACING_MODE === 'environment' ? 'user' : 'environment';
-  // 현재 스트림 교체 (녹화는 캔버스 기준이라 중단 없이 유지)
-  if(HL.stream) HL.stream.getTracks().forEach(function(t){ t.stop(); });
-  try {
-    var newStream = await navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:HL_FACING_MODE, width:{ideal:1280}, height:{ideal:720} },
-      audio:false
-    });
-    HL.stream = newStream;
-    var preview = document.getElementById('hlPreview');
-    preview.srcObject = newStream;
-    preview.play();
-    HL.videoEl = preview;
-  } catch(e){ HL_FACING_MODE = HL_FACING_MODE === 'user' ? 'environment' : 'user'; }
-}
-
-function beginRecording(){
-  if(HL.active) return;
-  HL.active  = true;
-  HL.chunks  = [];
-  HL.elapsed = 0;
-
-  // 지원 코덱 확인
-  var mime = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4']
-    .find(function(t){ return MediaRecorder.isTypeSupported(t); }) || '';
-
-  // 캔버스 스트림 30fps 녹화 (내용은 3fps → 10x)
-  var canvasStream = HL.canvas.captureStream(30);
-  HL.recorder = new MediaRecorder(canvasStream, mime ? {mimeType:mime} : {});
-  HL.recorder.ondataavailable = function(e){ if(e.data.size>0) HL.chunks.push(e.data); };
-  HL.recorder.onstop = finishHyperlapse;
-  HL.recorder.start(100);
-
-  // 333ms마다 프레임 캡처
-  HL.interval = setInterval(function(){
-    if(HL.videoEl.readyState >= 2){
-      HL.ctx.drawImage(HL.videoEl, 0, 0, 1280, 720);
-    }
-  }, HL_CAPTURE_MS);
-
-  // 경과시간 타이머
-  HL.timerInterval = setInterval(function(){
-    HL.elapsed++;
-    var m = Math.floor(HL.elapsed/60), s = HL.elapsed%60;
-    document.getElementById('hlTime').textContent = m+':'+(s<10?'0':'')+s;
-  }, 1000);
-
-  // UI: 녹화 버튼 → 정지 버튼
-  document.getElementById('hlRecordBtn').style.display = 'none';
-  document.getElementById('hlStopBtn').style.display   = 'flex';
-  document.getElementById('hlRecBadge').style.visibility = 'visible';
-}
-
-function stopHyperlapse(){
-  HL.active = false;
-  clearInterval(HL.interval);
-  clearInterval(HL.timerInterval);
-  if(HL.recorder && HL.recorder.state !== 'inactive') HL.recorder.stop();
-  if(HL.stream) HL.stream.getTracks().forEach(function(t){ t.stop(); });
-  document.getElementById('hlUI').style.display = 'none';
-  document.getElementById('photoAddRow').style.display = selectedFiles.length < 5 ? 'flex' : 'none';
-}
-
-function finishHyperlapse(){
-  var ext  = (HL.chunks[0] && HL.chunks[0].type.includes('mp4')) ? 'mp4' : 'webm';
-  var type = HL.chunks[0] ? HL.chunks[0].type : 'video/webm';
-  var blob = new Blob(HL.chunks, {type:type});
-  var file = new File([blob], 'hyperlapse_'+Date.now()+'.'+ext, {type:type});
-  selectedFiles.push(file);
   renderPhotoPreviews();
 }
 
