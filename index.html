@@ -274,7 +274,7 @@
           </div>
           <input type="file" id="galleryInput" accept="image/*" multiple style="display:none" onchange="onFilesSelected(this.files)">
           <input type="file" id="photoCapture" accept="image/*" capture="environment" style="display:none" onchange="onFilesSelected(this.files)">
-          <button class="share-btn" id="shareBtn" style="display:none" onclick="shareMedia()">
+          <button class="share-btn" id="shareBtn" onclick="shareMedia()">
             <span>📤</span> 공유하기
           </button>
         </div>
@@ -395,6 +395,69 @@ var g_elapsed     = 0;
 var g_todayEntries = []; // 오늘 인증한 사람들 (시간순)
 var PARTNERS_GID   = '1923675852'; // 짝꿍 시트
 var g_dataReady    = false;
+var g_sessionPhotos = {}; // {name_dateKey: [objectURL, ...]}
+var g_photoDB = null;
+
+/* ── IndexedDB 사진 저장소 ── */
+function initPhotoDB(){
+  return new Promise(function(resolve){
+    var req = indexedDB.open('PIOPhotoDB', 1);
+    req.onupgradeneeded = function(e){
+      e.target.result.createObjectStore('photos');
+    };
+    req.onsuccess = function(e){
+      g_photoDB = e.target.result;
+      resolve();
+    };
+    req.onerror = function(){ resolve(); };
+  });
+}
+
+function savePhotoDB(key, files){
+  if(!g_photoDB || !files.length) return;
+  try {
+    var blobs = files.map(function(f){ return f.slice(0, f.size, f.type); });
+    var tx = g_photoDB.transaction('photos','readwrite');
+    tx.objectStore('photos').put(blobs, key);
+  } catch(e){}
+}
+
+function loadPhotoDB(key){
+  return new Promise(function(resolve){
+    if(!g_photoDB){ resolve([]); return; }
+    try {
+      var tx = g_photoDB.transaction('photos','readonly');
+      var req = tx.objectStore('photos').get(key);
+      req.onsuccess = function(){ resolve(req.result || []); };
+      req.onerror   = function(){ resolve([]); };
+    } catch(e){ resolve([]); }
+  });
+}
+
+function deletePhotoDB(key){
+  if(!g_photoDB) return;
+  try {
+    var tx = g_photoDB.transaction('photos','readwrite');
+    tx.objectStore('photos').delete(key);
+  } catch(e){}
+}
+
+function getPhotoKeysForUser(name){
+  return new Promise(function(resolve){
+    if(!g_photoDB){ resolve(new Set()); return; }
+    try {
+      var tx = g_photoDB.transaction('photos','readonly');
+      var req = tx.objectStore('photos').getAllKeys();
+      req.onsuccess = function(){
+        var keys = new Set((req.result||[]).filter(function(k){
+          return k.indexOf(name+'_')===0;
+        }));
+        resolve(keys);
+      };
+      req.onerror = function(){ resolve(new Set()); };
+    } catch(e){ resolve(new Set()); }
+  });
+}
 
 function setDataReady(ready){
   g_dataReady = ready;
@@ -450,13 +513,17 @@ function switchSub(s) {
 
 // 백그라운드로 status 로드 (휴식권 상태 확인용)
 (function(){
-  if(!loadFromCache()){
-    // 캐시 없음 → 버튼 비활성화 후 즉시 로드
-    setDataReady(false);
-    setTimeout(function(){ loadStatus(); }, 0);
-  } else {
-    setDataReady(true);
-  }
+  // IndexedDB 초기화 후 앱 시작
+  initPhotoDB().then(function(){
+    // 오늘 날짜의 저장된 사진 불러오기
+    loadPhotosForDate();
+    if(!loadFromCache()){
+      setDataReady(false);
+      setTimeout(function(){ loadStatus(); }, 0);
+    } else {
+      setDataReady(true);
+    }
+  });
 })();
 
 /* ── 날짜/이름 초기화 ── */
@@ -474,9 +541,17 @@ function switchSub(s) {
     document.getElementById('personalInput').value=s;
   }
 })();
+document.getElementById('certDate').addEventListener('change', function(){
+  // 현재 날짜 사진은 이미 DB에 저장됨 - 유지
+  // 변경된 날짜에 저장된 사진 불러오기
+  loadPhotosForDate();
+});
+
 document.getElementById('certName').addEventListener('change',function(){
   var nv=this.value.trim();
   localStorage.setItem('pio_name',nv);
+  // 이름 변경 시 해당 날짜 사진 로드
+  loadPhotosForDate();
   // 참여인원 아닐 시 경고
   if(nv && allParticipants.length>0){
     var found=allParticipants.some(function(p){return p.name===nv;});
@@ -850,11 +925,12 @@ function renderTable(){
     var lastFmt   = p.lastDate  || '-';
     var pctDisp   = g_elapsed > 0 ? Math.round(p.total/g_elapsed*100) : 0; // 종합 기준 %
     var rank      = idx + 1;
-    var rankDisp  = isAllDone ? '🏅' : rank;
-    var rankStyle = isAllDone ? 'font-size:16px' : 'color:var(--muted);font-size:12px';
+    var rankDisp  = rank; // 항상 숫자
+    var rankStyle = rank<=3 ? 'font-size:13px;font-weight:700' : 'color:var(--muted);font-size:12px';
+    var nameMedal = isAllDone ? ' <span style="font-size:14px">🏅</span>' : '';
     return '<tr class="'+rowCls+'">'
       +'<td style="text-align:center;'+rankStyle+'">'+rankDisp+'</td>'
-      +'<td class="col-name">'+p.name+badge+'</td>'
+      +'<td class="col-name">'+p.name+nameMedal+'</td>'
       +'<td>'+p.total+'</td>'
       +'<td>'+p.workout+'</td>'
       +'<td>'+p.missed+'</td>'
@@ -868,7 +944,7 @@ function renderTable(){
 }
 
 /* ══ 개인 조회 ══ */
-function searchPersonal(){
+async function searchPersonal(){
   var name=document.getElementById('personalInput').value.trim();
   if(name) localStorage.setItem('pio_name', name);
   if(!name){document.getElementById('personalResult').innerHTML='<div class="no-result">이름을 입력하세요</div>';return;}
@@ -877,6 +953,13 @@ function searchPersonal(){
 
   var start=new Date('2026-06-03');start.setHours(0,0,0,0);
   var today=new Date();today.setHours(0,0,0,0);
+
+  // DB에서 이 사람의 사진 키 목록 가져오기
+  var photoKeySet = await getPhotoKeysForUser(p.name);
+  // 세션 캐시 키도 포함
+  Object.keys(g_sessionPhotos).forEach(function(k){
+    if(k.indexOf(p.name+'_')===0) photoKeySet.add(k);
+  });
 
   var rows=[];
   var d=new Date(start);
@@ -892,8 +975,13 @@ function searchPersonal(){
 
   var rowsHtml=rows.map(function(r){
     var cls=(r.isToday?'row-today':'')+(!r.isDone?' row-missed':'');
+    var photoKey = p.name+'_'+r.ds;
+    var hasPhoto = photoKeySet.has(photoKey);
+    var photoBtn = hasPhoto
+      ? '<span style="cursor:pointer;margin-left:5px" data-key="'+photoKey+'" onclick="showPersonalPhotos(this.dataset.key)">🖼️</span>'
+      : '';
     return '<tr class="'+cls+'">'
-      +'<td>'+r.disp+'</td>'
+      +'<td>'+r.disp+photoBtn+'</td>'
       +'<td>'+(r.isWorkout?'<span class="done-mark">실시</span>':'')+'</td>'
       +'<td>'+(r.isRest?'<span class="rest-mark">휴식권</span>':'')+'</td>'
       +'</tr>';
@@ -944,6 +1032,41 @@ function onFilesSelected(files){
   if(files.length > remaining){
     alert('최대 5개까지만 등록됩니다. '+(files.length-remaining)+'개는 제외되었습니다.');
   }
+  saveSessionPhotos();
+  renderPhotoPreviews();
+}
+
+function getCurrentPhotoKey(){
+  var name    = (document.getElementById('certName').value||'').trim();
+  var dateVal = document.getElementById('certDate').value;
+  if(!name||!dateVal) return null;
+  var p = dateVal.split('-');
+  return name+'_'+parseInt(p[0])+'/'+parseInt(p[1])+'/'+parseInt(p[2]);
+}
+
+function saveSessionPhotos(){
+  var key = getCurrentPhotoKey();
+  if(!key) return;
+  if(selectedFiles.length){
+    g_sessionPhotos[key] = selectedFiles.map(function(f){ return URL.createObjectURL(f); });
+    savePhotoDB(key, selectedFiles);
+  } else {
+    delete g_sessionPhotos[key];
+    deletePhotoDB(key);
+  }
+}
+
+// 특정 날짜 사진을 DB에서 불러와 selectedFiles에 반영
+async function loadPhotosForDate(){
+  var key = getCurrentPhotoKey();
+  if(!key){ selectedFiles=[]; renderPhotoPreviews(); return; }
+  var blobs = await loadPhotoDB(key);
+  if(blobs && blobs.length){
+    selectedFiles = blobs;
+    g_sessionPhotos[key] = blobs.map(function(b){ return URL.createObjectURL(b); });
+  } else {
+    selectedFiles = [];
+  }
   renderPhotoPreviews();
 }
 
@@ -975,15 +1098,21 @@ function renderPhotoPreviews(){
   // 2개 미만이면 추가 버튼 표시
   addRow.style.display = selectedFiles.length < 5 ? 'flex' : 'none';
   // 1개 이상이면 공유 버튼 표시
-  shareBtn.style.display = selectedFiles.length > 0 ? 'flex' : 'none';
+  // 공유하기 버튼은 항상 표시
 }
 
 function removeFile(idx){
   selectedFiles.splice(idx, 1);
+  saveSessionPhotos(); // DB 업데이트 (남은 파일로)
   renderPhotoPreviews();
 }
 
 async function shareMedia(){
+  if(!selectedFiles.length){
+    showCertStatus('err','📸 공유할 사진을 먼저 등록해 주세요.');
+    document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
+    return;
+  }
   if(!navigator.share){
     downloadMediaFiles();
     return;
@@ -1039,6 +1168,30 @@ function formatTime(d){
 }
 
 /* ── 모달 ── */
+async function showPersonalPhotos(key){
+  // 캐시 확인
+  var urls = g_sessionPhotos[key];
+  if(!urls || !urls.length){
+    // DB에서 로드
+    var blobs = await loadPhotoDB(key);
+    if(!blobs || !blobs.length){ return; }
+    urls = blobs.map(function(b){ return URL.createObjectURL(b); });
+    g_sessionPhotos[key] = urls;
+  }
+  var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 0">';
+  for(var i=0;i<urls.length;i++){
+    html += '<img src="'+urls[i]+'" style="width:calc(50% - 5px);aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:pointer" onclick="toggleImgSize(this)">';
+  }
+  html += '</div>';
+  var parts = key.split('_'); parts.shift();
+  var datePart = parts.join('/').replace(/\//g,'. ');
+  openModal('📷 ' + datePart + ' 사진', html);
+}
+
+function toggleImgSize(el){
+  el.style.width = el.style.width === '100%' ? 'calc(50% - 5px)' : '100%';
+}
+
 function closeModal(){
   document.getElementById('modalOverlay').style.display='none';
   document.body.style.overflow='';
