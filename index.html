@@ -1168,28 +1168,156 @@ function formatTime(d){
 }
 
 /* ── 모달 ── */
+/* ── 사진 슬라이더 ── */
+var g_photoNav = { keys:[], idx:0, user:'' };
+
 async function showPersonalPhotos(key){
-  // 캐시 확인
+  var user = key.substring(0, key.indexOf('_'));
+
+  // 해당 유저의 사진 있는 날짜 목록 구성
+  var dbKeys = await getPhotoKeysForUser(user);
+  // 세션 캐시 키도 포함
+  Object.keys(g_sessionPhotos).forEach(function(k){
+    if(k.indexOf(user+'_')===0) dbKeys.add(k);
+  });
+  g_photoNav.user = user;
+  g_photoNav.keys = Array.from(dbKeys).sort(function(a,b){
+    var pa=a.replace(user+'_','').split('/').map(Number);
+    var pb=b.replace(user+'_','').split('/').map(Number);
+    return (pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
+  });
+  g_photoNav.idx = g_photoNav.keys.indexOf(key);
+  if(g_photoNav.idx<0){ g_photoNav.keys.push(key); g_photoNav.idx=g_photoNav.keys.length-1; }
+
+  await renderPhotoSlide(key, null);
+}
+
+async function getPhotoUrls(key){
   var urls = g_sessionPhotos[key];
-  if(!urls || !urls.length){
-    // DB에서 로드
+  if(!urls||!urls.length){
     var blobs = await loadPhotoDB(key);
-    if(!blobs || !blobs.length){ return; }
+    if(!blobs||!blobs.length) return null;
     urls = blobs.map(function(b){ return URL.createObjectURL(b); });
     g_sessionPhotos[key] = urls;
   }
-  var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 0">';
-  for(var i=0;i<urls.length;i++){
-    html += '<img src="'+urls[i]+'" style="width:100%;border-radius:10px;display:block;cursor:pointer" onclick="toggleImgSize(this)">';
-  }
-  html += '</div>';
-  var parts = key.split('_'); parts.shift();
-  var datePart = parts.join('/').replace(/\//g,'. ');
-  openModal('📷 ' + datePart + ' 사진', html);
+  return urls;
 }
 
-function toggleImgSize(el){
-  // 이미 전체 표시 중이라 토글 불필요 - 제거
+function buildSlideHtml(urls){
+  var h='<div id="photoSlide" style="padding:0 4px">';
+  for(var i=0;i<urls.length;i++){
+    h+='<img src="'+urls[i]+'" style="width:100%;border-radius:10px;display:block;margin-bottom:10px">';
+  }
+  return h+'</div>';
+}
+
+function photoModalTitle(key){
+  var nav=g_photoNav;
+  var parts=key.split('_'); parts.shift();
+  var dateStr=parts.join('/').replace(/\//g,'. ');
+  var total=nav.keys.length;
+  return '🖼️ '+dateStr+(total>1?' ('+(nav.idx+1)+'/'+total+')':'');
+}
+
+async function renderPhotoSlide(key, animDir){
+  var urls = await getPhotoUrls(key);
+  if(!urls) return;
+  var html = buildSlideHtml(urls);
+
+  // 네비게이션 도트
+  var nav=g_photoNav, total=nav.keys.length;
+  if(total>1){
+    html+='<div id="photoDots" style="display:flex;justify-content:center;gap:6px;padding:10px 0 4px">';
+    for(var j=0;j<total;j++){
+      html+='<div style="width:7px;height:7px;border-radius:50%;background:'+(j===nav.idx?'var(--accent)':'var(--border)')+'"></div>';
+    }
+    html+='</div>';
+  }
+
+  if(!animDir){
+    // 최초 열기
+    openModal(photoModalTitle(key), html);
+    setTimeout(addPhotoSwipe, 50);
+  } else {
+    // 슬라이드 애니메이션
+    var body=document.getElementById('modalBody');
+    var old=document.getElementById('photoSlide');
+    var outX=animDir>0?'-100%':'100%';
+    var inX =animDir>0? '100%':'-100%';
+
+    // 새 슬라이드 준비
+    var tmp=document.createElement('div');
+    tmp.innerHTML=html;
+    var newSlide=tmp.querySelector('#photoSlide');
+    newSlide.style.cssText='position:absolute;inset:0;transform:translateX('+inX+');padding:0 4px';
+    body.style.position='relative'; body.style.overflow='hidden';
+    body.appendChild(newSlide);
+
+    // 현재 슬라이드도 absolute로 변환
+    old.style.cssText='position:absolute;inset:0;transform:translateX(0);padding:0 4px';
+
+    requestAnimationFrame(function(){
+      var t='transform .32s cubic-bezier(.4,0,.2,1)';
+      old.style.transition=t; newSlide.style.transition=t;
+      old.style.transform='translateX('+outX+')';
+      newSlide.style.transform='translateX(0)';
+    });
+
+    setTimeout(function(){
+      old.remove();
+      newSlide.id='photoSlide';
+      newSlide.style.cssText='padding:0 4px';
+      body.style.position=''; body.style.overflow='';
+      // 도트 업데이트
+      var dotsEl=document.getElementById('photoDots');
+      if(dotsEl){
+        var dots=dotsEl.children;
+        for(var i=0;i<dots.length;i++){
+          dots[i].style.background= i===nav.idx ? 'var(--accent)' : 'var(--border)';
+        }
+      }
+      // 타이틀 업데이트
+      document.getElementById('modalTitle').textContent=photoModalTitle(key);
+      addPhotoSwipe();
+    }, 340);
+  }
+}
+
+function addPhotoSwipe(){
+  var body=document.getElementById('modalBody');
+  if(!body) return;
+  var sx=0, sy=0, tracking=false;
+
+  body.ontouchstart=function(e){
+    sx=e.touches[0].clientX; sy=e.touches[0].clientY; tracking=true;
+  };
+  body.ontouchmove=function(e){
+    if(!tracking) return;
+    var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>8){
+      e.stopPropagation();
+      var slide=document.getElementById('photoSlide');
+      if(slide){ slide.style.transition='none'; slide.style.transform='translateX('+dx+'px)'; }
+    }
+  };
+  body.ontouchend=function(e){
+    if(!tracking) return; tracking=false;
+    var dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+    var slide=document.getElementById('photoSlide');
+    if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)){
+      var dir=dx>0?-1:1;
+      var nav=g_photoNav, nIdx=nav.idx+dir;
+      if(nIdx>=0&&nIdx<nav.keys.length){
+        nav.idx=nIdx;
+        renderPhotoSlide(nav.keys[nIdx], dir);
+      } else {
+        // 끝에서 스냅백
+        if(slide){ slide.style.transition='transform .25s ease'; slide.style.transform='translateX(0)'; }
+      }
+    } else {
+      if(slide){ slide.style.transition='transform .2s ease'; slide.style.transform='translateX(0)'; }
+    }
+  };
 }
 
 function closeModal(){
