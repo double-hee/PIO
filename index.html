@@ -1180,7 +1180,7 @@ async function showPersonalPhotos(key){
   }
   var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:12px 0">';
   for(var i=0;i<urls.length;i++){
-    html += '<img src="'+urls[i]+'" style="width:calc(50% - 5px);aspect-ratio:1;object-fit:cover;border-radius:10px;cursor:pointer" onclick="toggleImgSize(this)">';
+    html += '<img src="'+urls[i]+'" style="width:100%;border-radius:10px;display:block;cursor:pointer" onclick="toggleImgSize(this)">';
   }
   html += '</div>';
   var parts = key.split('_'); parts.shift();
@@ -1189,7 +1189,7 @@ async function showPersonalPhotos(key){
 }
 
 function toggleImgSize(el){
-  el.style.width = el.style.width === '100%' ? 'calc(50% - 5px)' : '100%';
+  // 이미 전체 표시 중이라 토글 불필요 - 제거
 }
 
 function closeModal(){
