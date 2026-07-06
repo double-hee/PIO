@@ -406,7 +406,8 @@ var g_todayStr    = '';
 var g_elapsed     = 0;
 var g_todayEntries = []; // 오늘 인증한 사람들 (시간순)
 var PARTNERS_GID   = '1923675852'; // 짝꿍 시트
-var g_dataReady    = false;
+var g_dataReady              = false;
+var g_pendingPersonalSearch  = false; // 현황 로딩 후 자동조회 예약
 var g_sessionPhotos = {}; // {name_dateKey: [objectURL, ...]}
 var g_photoDB = null;
 
@@ -496,10 +497,17 @@ function switchTab(tab) {
   document.getElementById('tab-status').className = 'tab-btn' + (tab==='status' ? ' ab' : '');
   document.getElementById('page-cert').className   = 'page' + (tab==='cert'   ? ' active' : '');
   document.getElementById('page-status').className = 'page' + (tab==='status' ? ' active' : '');
-  if (tab==='status' && allParticipants.length===0) loadStatus();
   if (tab==='status') {
     var saved=localStorage.getItem('pio_name');
     if(saved) document.getElementById('personalInput').value=saved;
+    // 현황 탭으로 올 때마다 새로고침
+    clearCache();
+    loadStatus();
+    // 개인조회 탭이 활성화돼 있으면 로딩 완료 후 자동 조회
+    var activeSub = document.querySelector('.sub-panel.active');
+    if(activeSub && activeSub.id === 'sub-personal' && saved && saved.trim()){
+      g_pendingPersonalSearch = true; // 로딩 완료 시 조회 예약
+    }
   }
 }
 function switchSub(s) {
@@ -507,6 +515,15 @@ function switchSub(s) {
     document.getElementById('stab-'+n).className = 'sub-tab' + (n===s ? ' ac' : '');
     document.getElementById('sub-'+n).className  = 'sub-panel' + (n===s ? ' active' : '');
   });
+  // 개인조회 탭 전환 시 저장된 이름으로 자동 조회
+  if(s === 'personal'){
+    var saved = localStorage.getItem('pio_name');
+    if(saved && saved.trim()){
+      var input = document.getElementById('personalInput');
+      if(input) input.value = saved.trim();
+      searchPersonal();
+    }
+  }
 }
 
 /* ── 오늘의 운동 ── */
@@ -882,6 +899,11 @@ function processSheetData(table){
   renderTable();
   updateCertRestStatus();
   setDataReady(true); // 데이터 준비 완료 → 버튼 활성화
+  // 예약된 개인조회 실행
+  if(g_pendingPersonalSearch){
+    g_pendingPersonalSearch = false;
+    searchPersonal();
+  }
   // 캐시 저장
   saveToCache();
   // 파트너 시트 백그라운드 프리로드
