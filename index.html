@@ -107,6 +107,15 @@
 
     /* 모달 */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s;touch-action:none;}
+    /* 사진 팝업 고정 크기 */
+    .modal-box.photo-modal{height:82vh;max-height:82vh;}
+    .modal-box.photo-modal .modal-body{overflow-y:auto;overscroll-behavior:contain;}
+    #photoWrapper{overflow:hidden;position:relative;}
+    #photoTrack{display:flex;}
+    .pslide{flex-shrink:0;padding:0 4px;box-sizing:border-box;}
+    /* 이미지 크기 제한 + 터치 검색 차단 */
+    .modal-body img{max-height:70vh;width:100%;object-fit:contain;display:block;margin-bottom:10px;
+      -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;pointer-events:none;}
     .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:680px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;touch-action:pan-y;}
     .modal-hdr{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
     .modal-title{font-size:16px;font-weight:700;}
@@ -1228,24 +1237,28 @@ function photoModalTitle(key){
 async function renderPhotoSlide(key, animDir){
   var urls = await getPhotoUrls(key);
   if(!urls) return;
-  var html = buildSlideHtml(urls);
-
-  // 네비게이션 도트
+  // 네비게이션 도트 (사진 위)
   var nav=g_photoNav, total=nav.keys.length;
+  var dotsHtml='';
   if(total>1){
-    html+='<div id="photoDots" style="display:flex;justify-content:center;gap:6px;padding:10px 0 4px">';
+    dotsHtml='<div id="photoDots" style="display:flex;justify-content:center;gap:6px;padding:6px 0 10px">';
     for(var j=0;j<total;j++){
-      html+='<div style="width:7px;height:7px;border-radius:50%;background:'+(j===nav.idx?'var(--accent)':'var(--border)')+'"></div>';
+      dotsHtml+='<div style="width:7px;height:7px;border-radius:50%;background:'+(j===nav.idx?'var(--accent)':'var(--border)')+'"></div>';
     }
-    html+='</div>';
+    dotsHtml+='</div>';
   }
+  var html = dotsHtml + buildSlideHtml(urls);
 
   if(!animDir){
     // 최초 열기
     openModal(photoModalTitle(key), html);
-    setTimeout(addPhotoSwipe, 50);
-    // 인접 슬라이드 백그라운드 프리로드
-    setTimeout(preloadAdjacentSlides, 200);
+    // 모달 박스에 photo-modal 클래스 추가 (고정 크기)
+    var mb = document.querySelector('.modal-box');
+    if(mb) mb.classList.add('photo-modal');
+    // 이미지 로드 완료 후 트랙 초기화
+    preloadAdjacentSlides().then(function(){
+      waitImagesAndMount(); // 내부에서 initTrack() → addPhotoSwipe() 순서로 호출
+    });
   } else {
     // 슬라이드 애니메이션
     var body=document.getElementById('modalBody');
@@ -1325,45 +1338,197 @@ function preDecodeImages(urls){
   });
 }
 
+/* ── 사진 슬라이더 (flex-track 방식) ── */
+// 각 슬라이드를 flex 아이템으로 구성 → overflow:hidden으로 자연 클리핑
+// 높이는 현재 사진 크기에 따라 자동으로 결정됨
+
+function buildSlideHtml(urls){
+  return '<div id="photoWrapper" style="overflow:hidden;position:relative">'
+    +'<div id="photoTrack" style="display:flex;will-change:transform">'
+    +'<div id="photoPrev"  class="pslide"></div>'
+    +'<div id="photoSlide" class="pslide">'+buildSlideImgs(urls)+'</div>'
+    +'<div id="photoNext"  class="pslide"></div>'
+    +'</div></div>';
+}
+
+function getTrackW(){
+  var w = document.getElementById('photoWrapper');
+  return w ? w.offsetWidth : window.innerWidth;
+}
+
+function setTrackPos(px, animate){
+  var track = document.getElementById('photoTrack');
+  if(!track) return;
+  track.style.transition = animate ? 'transform .28s cubic-bezier(.4,0,.2,1)' : 'none';
+  track.style.transform  = 'translateX('+px+'px)';
+}
+
+function fillSlide(id, urls){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.innerHTML = urls && urls.length ? buildSlideImgs(urls) : '';
+}
+
+async function initTrack(){
+  // 트랙 슬라이드 너비 설정 후 center(currentSlide) 표시
+  var W = getTrackW();
+  if(W <= 0) W = window.innerWidth; // fallback
+  var slides = document.querySelectorAll('.pslide');
+  slides.forEach(function(s){ s.style.minWidth = W+'px'; s.style.width = W+'px'; });
+  setTrackPos(-W, false);
+
+  // prev/next 미리 채우기
+  var nav = g_photoNav;
+  var prevKey = nav.idx > 0 ? nav.keys[nav.idx-1] : null;
+  var nextKey = nav.idx < nav.keys.length-1 ? nav.keys[nav.idx+1] : null;
+  var prevUrls = prevKey ? (g_sessionPhotos[prevKey] || await loadAndCache(prevKey)) : null;
+  var nextUrls = nextKey ? (g_sessionPhotos[nextKey] || await loadAndCache(nextKey)) : null;
+  fillSlide('photoPrev', prevUrls);
+  fillSlide('photoNext', nextUrls);
+
+  // 트랙 준비 완료 후 스와이프 핸들러 등록
+  addPhotoSwipe();
+}
+
+async function loadAndCache(key){
+  if(!key) return null;
+  var blobs = await loadPhotoDB(key);
+  if(!blobs||!blobs.length) return null;
+  var urls = blobs.map(function(b){ return URL.createObjectURL(b); });
+  g_sessionPhotos[key] = urls;
+  preDecodeImages(urls);
+  return urls;
+}
+
+async function shiftTrack(dir){
+  // dir>0: 왼쪽 스와이프 → next 슬라이드로 이동
+  var W   = getTrackW();
+  var nav = g_photoNav;
+  var nIdx = nav.idx + dir;
+  if(nIdx < 0 || nIdx >= nav.keys.length) return false;
+
+  // 애니메이션: track을 prev(-2W) 또는 next(0)로 이동
+  var targetPx = dir > 0 ? -2*W : 0;
+  setTrackPos(targetPx, true);
+
+  await new Promise(function(r){ setTimeout(r, 290); });
+
+  nav.idx = nIdx;
+  var newKey = nav.keys[nIdx];
+
+  // 새 prev/current/next 콘텐츠 계산
+  var prevKey = nIdx > 0 ? nav.keys[nIdx-1] : null;
+  var nextKey = nIdx < nav.keys.length-1 ? nav.keys[nIdx+1] : null;
+
+  var currentUrls = g_sessionPhotos[newKey] || await loadAndCache(newKey);
+  var prevUrls    = prevKey ? (g_sessionPhotos[prevKey] || await loadAndCache(prevKey)) : null;
+  var nextUrls    = nextKey ? (g_sessionPhotos[nextKey] || await loadAndCache(nextKey)) : null;
+
+  // 콘텐츠 교체 + 트랙 순간 이동 (애니메이션 없이)
+  fillSlide('photoPrev',  prevUrls);
+  fillSlide('photoSlide', currentUrls);
+  fillSlide('photoNext',  nextUrls);
+  setTrackPos(-W, false);
+
+  // 타이틀 · 도트
+  var titleEl = document.getElementById('modalTitle');
+  if(titleEl) titleEl.textContent = photoModalTitle(newKey);
+  var dotsEl = document.getElementById('photoDots');
+  if(dotsEl){
+    var dots = dotsEl.children;
+    for(var i=0;i<dots.length;i++)
+      dots[i].style.background = (i===nav.idx?'var(--accent)':'var(--border)');
+  }
+  return true;
+}
+
+/* 슬라이드 DOM에 인접 슬라이드 삽입 - 하위 호환용 */
+function mountAdjacentSlides(){ /* flex-track 방식에서는 initTrack()이 처리 */ }
+function waitImagesAndMount(){
+  var wrapper = document.getElementById('photoWrapper');
+  if(!wrapper){ initTrack(); return; }
+  var imgs = wrapper.querySelectorAll('#photoSlide img');
+  if(!imgs.length){ initTrack(); return; }
+  var total=imgs.length, done=0;
+  function onLoad(){ if(++done>=total) initTrack(); }
+  for(var i=0;i<imgs.length;i++){
+    if(imgs[i].complete) onLoad();
+    else{ imgs[i].onload=onLoad; imgs[i].onerror=onLoad; }
+  }
+}
+
 function addPhotoSwipe(){
-  var body=document.getElementById('modalBody');
+  var body = document.getElementById('modalBody');
   if(!body) return;
-  var sx=0, sy=0, isHoriz=false, decided=false;
+  var sx=0, sy=0, isHoriz=false, decided=false, W=0;
 
   if(body._ts){ body.removeEventListener('touchstart',body._ts); }
   if(body._tm){ body.removeEventListener('touchmove', body._tm,{passive:false}); }
   if(body._te){ body.removeEventListener('touchend',  body._te); }
 
-  body._ts=function(e){ sx=e.touches[0].clientX; sy=e.touches[0].clientY; isHoriz=false; decided=false; };
-  body._tm=function(e){
-    var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
-    if(!decided&&(Math.abs(dx)>6||Math.abs(dy)>6)){ isHoriz=Math.abs(dx)>Math.abs(dy); decided=true; }
-    if(!isHoriz) return;
-    e.preventDefault(); e.stopPropagation(); // 수평 시 모달 이동 완전 차단
-    var slide=document.getElementById('photoSlide');
-    if(slide){ slide.style.transition='none'; slide.style.transform='translateX('+dx+'px)'; }
+  body._ts = function(e){
+    sx=e.touches[0].clientX; sy=e.touches[0].clientY;
+    isHoriz=false; decided=false;
+    W = getTrackW();
+    if(W<=0) W=window.innerWidth;
   };
-  body._te=function(e){
+  body._tm = function(e){
+    var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
+    if(!decided&&(Math.abs(dx)>5||Math.abs(dy)>5)){
+      isHoriz=Math.abs(dx)>Math.abs(dy); decided=true;
+    }
+    if(!isHoriz) return;
+    e.preventDefault(); e.stopPropagation();
+    // 트랙 전체를 손가락에 맞게 이동
+    setTrackPos(-W + dx, false);
+  };
+  body._te = function(e){
     if(!decided||!isHoriz) return;
-    var dx=e.changedTouches[0].clientX-sx;
-    var slide=document.getElementById('photoSlide');
+    var dx = e.changedTouches[0].clientX-sx;
+    var nav = g_photoNav;
     if(Math.abs(dx)>55){
-      var dir=dx>0?-1:1, nav=g_photoNav, nIdx=nav.idx+dir;
-      if(nIdx>=0&&nIdx<nav.keys.length){ nav.idx=nIdx; renderPhotoSlide(nav.keys[nIdx],dir); }
-      else{ if(slide){slide.style.transition='transform .25s ease';slide.style.transform='translateX(0)';} }
+      var dir = dx>0?-1:1;
+      var nIdx = nav.idx+dir;
+      if(nIdx>=0&&nIdx<nav.keys.length){
+        shiftTrack(dir).then(function(){ addPhotoSwipe(); });
+      } else {
+        setTrackPos(-W, true); // 끝에서 스냅백
+      }
     } else {
-      if(slide){slide.style.transition='transform .2s ease';slide.style.transform='translateX(0)';}
+      setTrackPos(-W, true); // 스냅백
     }
   };
-  body.addEventListener('touchstart',body._ts,{passive:true});
-  body.addEventListener('touchmove', body._tm,{passive:false});
-  body.addEventListener('touchend',  body._te,{passive:true});
+  body.addEventListener('touchstart', body._ts, {passive:true});
+  body.addEventListener('touchmove',  body._tm, {passive:false});
+  body.addEventListener('touchend',   body._te, {passive:true});
 }
+
+/* 인접 슬라이드 프리로드 */
+async function preloadAdjacentSlides(){
+  var nav = g_photoNav;
+  var keys = [];
+  if(nav.idx>0) keys.push(nav.keys[nav.idx-1]);
+  if(nav.idx<nav.keys.length-1) keys.push(nav.keys[nav.idx+1]);
+  for(var i=0;i<keys.length;i++){
+    if(!g_sessionPhotos[keys[i]]||!g_sessionPhotos[keys[i]].length)
+      await loadAndCache(keys[i]);
+    else preDecodeImages(g_sessionPhotos[keys[i]]);
+  }
+}
+
+function preDecodeImages(urls){
+  if(!urls) return;
+  urls.forEach(function(url){ var img=new Image(); img.src=url; });
+}
+
 
 function closeModal(){
   document.getElementById('modalOverlay').style.display='none';
   document.body.style.overflow='';
   document.body.style.overscrollBehavior='';
+  // photo-modal 클래스 제거
+  var mb = document.querySelector('.modal-box');
+  if(mb) mb.classList.remove('photo-modal');
 }
 function openModal(title, bodyHtml){
   document.getElementById('modalTitle').textContent=title;
