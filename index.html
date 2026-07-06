@@ -1244,6 +1244,8 @@ async function renderPhotoSlide(key, animDir){
     // 최초 열기
     openModal(photoModalTitle(key), html);
     setTimeout(addPhotoSwipe, 50);
+    // 인접 슬라이드 백그라운드 프리로드
+    setTimeout(preloadAdjacentSlides, 200);
   } else {
     // 슬라이드 애니메이션
     var body=document.getElementById('modalBody');
@@ -1259,12 +1261,12 @@ async function renderPhotoSlide(key, animDir){
 
     // 새 슬라이드 (wrapper 안, absolute)
     var ns=document.createElement('div');
-    ns.style.cssText='position:absolute;left:0;right:0;top:0;padding:0 4px;transform:translateX('+inX+')';
+    ns.style.cssText='position:absolute;left:0;right:0;top:0;padding:0 4px;transform:translateX('+inX+');will-change:transform';
     ns.innerHTML=buildSlideImgs(urls);
     wrapper.appendChild(ns);
 
     // 기존 슬라이드 absolute 전환
-    old.style.cssText='position:absolute;left:0;right:0;top:0;padding:0 4px;';
+    old.style.cssText='position:absolute;left:0;right:0;top:0;padding:0 4px;will-change:transform';
 
     requestAnimationFrame(function(){
       var t='transform .28s cubic-bezier(.4,0,.2,1)';
@@ -1276,7 +1278,7 @@ async function renderPhotoSlide(key, animDir){
     setTimeout(function(){
       old.remove();
       ns.id='photoSlide';
-      ns.style.cssText='padding:0 4px;';
+      ns.style.cssText='padding:0 4px;'; // will-change 제거로 메모리 해제
       wrapper.style.height=''; // 고정 해제
       var dotsEl=document.getElementById('photoDots');
       if(dotsEl){
@@ -1286,8 +1288,41 @@ async function renderPhotoSlide(key, animDir){
       }
       document.getElementById('modalTitle').textContent=photoModalTitle(key);
       addPhotoSwipe();
+      // 새 위치 기준 인접 슬라이드 프리로드
+      setTimeout(preloadAdjacentSlides, 100);
     }, 300);
   }
+}
+
+/* 인접 슬라이드 프리로드 - 스와이프 버벅임 방지 */
+async function preloadAdjacentSlides(){
+  var nav = g_photoNav;
+  var toLoad = [];
+  if(nav.idx > 0)               toLoad.push(nav.keys[nav.idx-1]);
+  if(nav.idx < nav.keys.length-1) toLoad.push(nav.keys[nav.idx+1]);
+
+  for(var i=0; i<toLoad.length; i++){
+    var key = toLoad[i];
+    // 아직 캐시 없으면 DB에서 로드
+    if(!g_sessionPhotos[key] || !g_sessionPhotos[key].length){
+      var blobs = await loadPhotoDB(key);
+      if(blobs && blobs.length){
+        var urls = blobs.map(function(b){ return URL.createObjectURL(b); });
+        g_sessionPhotos[key] = urls;
+        // 이미지 객체로 미리 디코딩 (브라우저 캐시에 올림)
+        preDecodeImages(urls);
+      }
+    } else {
+      preDecodeImages(g_sessionPhotos[key]);
+    }
+  }
+}
+
+function preDecodeImages(urls){
+  urls.forEach(function(url){
+    var img = new Image();
+    img.src = url; // 브라우저가 백그라운드에서 디코딩
+  });
 }
 
 function addPhotoSwipe(){
