@@ -188,6 +188,8 @@
     .ptbl .done-mark{color:var(--accent);font-weight:700;}
     .ptbl .rest-mark{color:#ff8fa3;font-weight:700;}
     .ptbl tr[data-key]:hover td{background:rgba(0,184,255,.06);}
+    .ptbl tr[data-key]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+    .ptbl tr[data-key] td{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
     .ptbl .row-today td{background:rgba(0,229,160,.06);}
     .ptbl .row-missed td{color:var(--muted);}
     .no-result{text-align:center;padding:40px;color:var(--muted);font-size:14px;}
@@ -989,11 +991,11 @@ async function searchPersonal(){
     var hasPhoto = photoKeySet.has(photoKey);
     // 사진 열: 있으면 아이콘, 없으면 빈칸
     var photoCell = hasPhoto
-      ? '<td style="text-align:center;cursor:pointer" data-key="'+photoKey+'" onclick="showPersonalPhotos(this.dataset.key)">🖼️</td>'
+      ? '<td style="text-align:center;cursor:pointer" data-key="'+photoKey+'" onclick="onPhotoRowTap(event,this)">🖼️</td>'
       : '<td></td>';
     // 행 전체 클릭 시 사진 열기 (사진 있는 경우만)
     var rowClick = hasPhoto
-      ? 'style="cursor:pointer" data-key="'+photoKey+'" onclick="showPersonalPhotos(this.dataset.key)"'
+      ? 'style="cursor:pointer" data-key="'+photoKey+'" onclick="onPhotoRowTap(event,this)"'
       : '';
     return '<tr class="'+cls+'" '+rowClick+'>'
       +'<td>'+r.disp+'</td>'
@@ -1186,6 +1188,13 @@ function formatTime(d){
 /* ── 모달 ── */
 /* ── 사진 슬라이더 ── */
 var g_photoNav = { keys:[], idx:0, user:'' };
+
+async function onPhotoRowTap(e, el){
+  e.preventDefault();
+  e.stopPropagation();
+  var key = el.dataset.key || (el.closest('[data-key]') && el.closest('[data-key]').dataset.key);
+  if(key) showPersonalPhotos(key);
+}
 
 async function showPersonalPhotos(key){
   var user = key.substring(0, key.indexOf('_'));
