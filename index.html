@@ -397,6 +397,10 @@
 </form>
 
 <script>
+// ★ Apps Script 배포 URL을 아래에 입력하세요
+// script.google.com → 배포 → 웹앱 URL 복사 후 붙여넣기
+var DRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTjpSR4fS8aeEEwjFDX8KWjp3hHRBrDiqS13inDV3YnRnTmtby19cEKoY24s11jm_WxQ/exec';
+
 var SHEET_ID = '1msKfta9iO7v0lCkpfYbQk6nzrKFXsgm9ARHzQp1TfMA';
 // ★ 폼 응답 1 시트의 gid를 아래에 입력하세요
 // 구글 시트 → "폼 응답 1" 탭 클릭 → URL 끝의 #gid=숫자 확인
@@ -1076,6 +1080,75 @@ function onFilesSelected(files){
   renderPhotoPreviews();
 }
 
+/* ── Google Drive 사진 업로드 ── */
+async function compressToBase64(file, maxPx){
+  return new Promise(function(resolve){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        var w = img.width, h = img.height;
+        if(w > maxPx || h > maxPx){
+          var ratio = maxPx / Math.max(w, h);
+          w = Math.round(w * ratio); h = Math.round(h * ratio);
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        var b64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+        resolve(b64);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPhotoToDrive(file, name, dateKey){
+  if(!DRIVE_SCRIPT_URL) return null;
+  try {
+    var b64 = await compressToBase64(file, 1920);
+    var payload = {
+      action:   'upload',
+      name:     name,
+      date:     dateKey,
+      photo:    b64,
+      mimeType: 'image/jpeg',
+      filename: name + '_' + dateKey.split('/').join('-') + '_' + Date.now() + '.jpg'
+    };
+    var res = await fetch(DRIVE_SCRIPT_URL, {
+      method:  'POST',
+      body:    JSON.stringify(payload)
+    });
+    var json = await res.json();
+    return json.success ? json.viewUrl : null;
+  } catch(e){
+    console.warn('Drive 업로드 실패:', e);
+    return null;
+  }
+}
+
+// Drive 메타데이터 저장 (localStorage - 브라우저 데이터 삭제 후에도 캐시는 유지)
+var DRIVE_META_KEY = 'pio_drive_meta';
+
+function getDriveMeta(){
+  try { return JSON.parse(localStorage.getItem(DRIVE_META_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function saveDriveMeta(meta){
+  try { localStorage.setItem(DRIVE_META_KEY, JSON.stringify(meta)); }
+  catch(e){}
+}
+function addDriveUrl(photoKey, url){
+  var meta = getDriveMeta();
+  if(!meta[photoKey]) meta[photoKey] = [];
+  if(!meta[photoKey].includes(url)) meta[photoKey].push(url);
+  saveDriveMeta(meta);
+}
+function getDriveUrls(photoKey){
+  return getDriveMeta()[photoKey] || [];
+}
+
 function getCurrentPhotoKey(){
   var name    = (document.getElementById('certName').value||'').trim();
   var dateVal = document.getElementById('certDate').value;
@@ -1090,6 +1163,18 @@ function saveSessionPhotos(){
   if(selectedFiles.length){
     g_sessionPhotos[key] = selectedFiles.map(function(f){ return URL.createObjectURL(f); });
     savePhotoDB(key, selectedFiles);
+    // Drive 업로드 (비동기 백그라운드)
+    if(DRIVE_SCRIPT_URL){
+      var name    = (document.getElementById('certName').value||'').trim();
+      var dateVal = document.getElementById('certDate').value;
+      var parts   = dateVal.split('-');
+      var dateKey = parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
+      selectedFiles.forEach(function(file){
+        uploadPhotoToDrive(file, name, dateKey).then(function(url){
+          if(url) addDriveUrl(key, url);
+        });
+      });
+    }
   } else {
     delete g_sessionPhotos[key];
     deletePhotoDB(key);
@@ -1242,10 +1327,21 @@ async function showPersonalPhotos(key){
 async function getPhotoUrls(key){
   var urls = g_sessionPhotos[key];
   if(!urls||!urls.length){
+    // 1차: IndexedDB
     var blobs = await loadPhotoDB(key);
-    if(!blobs||!blobs.length) return null;
-    urls = blobs.map(function(b){ return URL.createObjectURL(b); });
-    g_sessionPhotos[key] = urls;
+    if(blobs&&blobs.length){
+      urls = blobs.map(function(b){ return URL.createObjectURL(b); });
+      g_sessionPhotos[key] = urls;
+    } else {
+      // 2차: Google Drive (IndexedDB 삭제됐어도 Drive URL은 localStorage에 남아있음)
+      var driveUrls = getDriveUrls(key);
+      if(driveUrls.length){
+        g_sessionPhotos[key] = driveUrls;
+        urls = driveUrls;
+      } else {
+        return null;
+      }
+    }
   }
   return urls;
 }
@@ -1676,5 +1772,17 @@ function parseDate(cell){
 function d2s(d){return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();}
 function formatDisp(ds){var p=ds.split('/');return p.length===3?p[0]+'. '+p[1]+'. '+p[2]:ds;}
 </script>
+  <script>
+    // 서비스 워커 등록 (GitHub Pages에서만 - 로컬/미리보기 환경 제외)
+    if('serviceWorker' in navigator &&
+       location.protocol === 'https:' &&
+       location.hostname !== 'www.claudeusercontent.com'){
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('./sw.js')
+          .then(function(reg){ console.log('SW 등록됨:', reg.scope); })
+          .catch(function(err){ console.log('SW 오류:', err); });
+      });
+    }
+  </script>
 </body>
 </html>
