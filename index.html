@@ -1211,7 +1211,7 @@ function buildSlideImgs(urls){
   return h;
 }
 function buildSlideHtml(urls){
-  // photoWrapper: overflow:hidden으로 애니메이션 중 높이 유지
+  // photoWrapper: overflow:hidden으로 애니메이션 중 높이 유지 → 모달 위치 불변
   return '<div id="photoWrapper" style="overflow:hidden;position:relative">'
     +'<div id="photoSlide" style="padding:0 4px">'+buildSlideImgs(urls)+'</div>'
     +'</div>';
@@ -1228,75 +1228,215 @@ function photoModalTitle(key){
 async function renderPhotoSlide(key, animDir){
   var urls = await getPhotoUrls(key);
   if(!urls) return;
+  var html = buildSlideHtml(urls);
 
+  // 네비게이션 도트
   var nav=g_photoNav, total=nav.keys.length;
-
-  // 도트 HTML
-  var dotsHtml='';
   if(total>1){
-    dotsHtml='<div id="photoDots" style="display:flex;justify-content:center;gap:6px;padding:10px 0 4px">';
+    html+='<div id="photoDots" style="display:flex;justify-content:center;gap:6px;padding:10px 0 4px">';
     for(var j=0;j<total;j++){
-      dotsHtml+='<div style="width:7px;height:7px;border-radius:50%;background:'+(j===nav.idx?'var(--accent)':'var(--border)')+'" ></div>';
+      html+='<div style="width:7px;height:7px;border-radius:50%;background:'+(j===nav.idx?'var(--accent)':'var(--border)')+'"></div>';
     }
-    dotsHtml+='</div>';
+    html+='</div>';
   }
 
   if(!animDir){
-    // 최초 열기: photoWrapper + 슬라이드 + 도트
-    var html = buildSlideHtml(urls) + dotsHtml;
+    // 최초 열기
     openModal(photoModalTitle(key), html);
     setTimeout(addPhotoSwipe, 50);
-    return;
+  } else {
+    // 슬라이드 애니메이션
+    var body=document.getElementById('modalBody');
+    var old=document.getElementById('photoSlide');
+    var outX=animDir>0?'-100%':'100%';
+    var inX =animDir>0? '100%':'-100%';
+
+    // photoWrapper 안에서만 애니메이션 → 모달 높이 불변 (모달 점프 방지)
+    var wrapper=document.getElementById('photoWrapper');
+    if(!wrapper||!old) return;
+    // wrapper 높이 고정
+    wrapper.style.height=wrapper.offsetHeight+'px';
+
+    // 새 슬라이드 (wrapper 안, absolute)
+    var ns=document.createElement('div');
+    ns.style.cssText='position:absolute;left:0;right:0;top:0;padding:0 4px;transform:translateX('+inX+')';
+    ns.innerHTML=buildSlideImgs(urls);
+    wrapper.appendChild(ns);
+
+    // 기존 슬라이드 absolute 전환
+    old.style.cssText='position:absolute;left:0;right:0;top:0;padding:0 4px;';
+
+    requestAnimationFrame(function(){
+      var t='transform .28s cubic-bezier(.4,0,.2,1)';
+      old.style.transition=t; ns.style.transition=t;
+      old.style.transform='translateX('+outX+')';
+      ns.style.transform='translateX(0)';
+    });
+
+    setTimeout(function(){
+      old.remove();
+      ns.id='photoSlide';
+      ns.style.cssText='padding:0 4px;';
+      wrapper.style.height=''; // 고정 해제
+      var dotsEl=document.getElementById('photoDots');
+      if(dotsEl){
+        var dots=dotsEl.children;
+        for(var i=0;i<dots.length;i++)
+          dots[i].style.background=(i===nav.idx?'var(--accent)':'var(--border)');
+      }
+      document.getElementById('modalTitle').textContent=photoModalTitle(key);
+      addPhotoSwipe();
+    }, 300);
   }
-
-  // ── 슬라이드 애니메이션 ──
-  var wrapper = document.getElementById('photoWrapper');
-  var old     = document.getElementById('photoSlide');
-  if(!wrapper || !old) return;
-
-  var outX = animDir>0 ? '-100%' : '100%';
-  var inX  = animDir>0 ?  '100%' : '-100%';
-
-  // wrapper 높이 고정 → 모달 크기 변화 방지
-  wrapper.style.height = wrapper.offsetHeight + 'px';
-
-  // 새 슬라이드 생성 (wrapper 안, absolute)
-  var ns = document.createElement('div');
-  ns.style.cssText = 'position:absolute;left:0;right:0;top:0;padding:0 4px;transform:translateX('+inX+')';
-  ns.innerHTML = buildSlideImgs(urls);
-  wrapper.appendChild(ns);
-
-  // 기존 슬라이드 absolute 전환 (flow에서 제거되지만 wrapper 높이 고정됨)
-  old.style.cssText = 'position:absolute;left:0;right:0;top:0;padding:0 4px;';
-
-  // 애니메이션 실행
-  requestAnimationFrame(function(){
-    var t = 'transform .28s cubic-bezier(.4,0,.2,1)';
-    old.style.transition = t;
-    ns.style.transition  = t;
-    old.style.transform  = 'translateX('+outX+')';
-    ns.style.transform   = 'translateX(0)';
-  });
-
-  setTimeout(function(){
-    old.remove();
-    ns.id = 'photoSlide';
-    ns.style.cssText = 'padding:0 4px;';
-    wrapper.style.height = ''; // 높이 해제 → 자연스러운 흐름 복귀
-
-    // 타이틀 업데이트
-    var t = document.getElementById('modalTitle');
-    if(t) t.textContent = photoModalTitle(key);
-
-    // 도트 업데이트
-    var dotsEl = document.getElementById('photoDots');
-    if(dotsEl){
-      var dots = dotsEl.children;
-      for(var i=0;i<dots.length;i++)
-        dots[i].style.background = (i===nav.idx ? 'var(--accent)' : 'var(--border)');
-    }
-    addPhotoSwipe();
-  }, 300);
 }
 
+function addPhotoSwipe(){
+  var body=document.getElementById('modalBody');
+  if(!body) return;
+  var sx=0, sy=0, isHoriz=false, decided=false;
 
+  if(body._ts){ body.removeEventListener('touchstart',body._ts); }
+  if(body._tm){ body.removeEventListener('touchmove', body._tm,{passive:false}); }
+  if(body._te){ body.removeEventListener('touchend',  body._te); }
+
+  body._ts=function(e){ sx=e.touches[0].clientX; sy=e.touches[0].clientY; isHoriz=false; decided=false; };
+  body._tm=function(e){
+    var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
+    if(!decided&&(Math.abs(dx)>6||Math.abs(dy)>6)){ isHoriz=Math.abs(dx)>Math.abs(dy); decided=true; }
+    if(!isHoriz) return;
+    e.preventDefault(); e.stopPropagation(); // 수평 시 모달 이동 완전 차단
+    var slide=document.getElementById('photoSlide');
+    if(slide){ slide.style.transition='none'; slide.style.transform='translateX('+dx+'px)'; }
+  };
+  body._te=function(e){
+    if(!decided||!isHoriz) return;
+    var dx=e.changedTouches[0].clientX-sx;
+    var slide=document.getElementById('photoSlide');
+    if(Math.abs(dx)>55){
+      var dir=dx>0?-1:1, nav=g_photoNav, nIdx=nav.idx+dir;
+      if(nIdx>=0&&nIdx<nav.keys.length){ nav.idx=nIdx; renderPhotoSlide(nav.keys[nIdx],dir); }
+      else{ if(slide){slide.style.transition='transform .25s ease';slide.style.transform='translateX(0)';} }
+    } else {
+      if(slide){slide.style.transition='transform .2s ease';slide.style.transform='translateX(0)';}
+    }
+  };
+  body.addEventListener('touchstart',body._ts,{passive:true});
+  body.addEventListener('touchmove', body._tm,{passive:false});
+  body.addEventListener('touchend',  body._te,{passive:true});
+}
+
+function closeModal(){
+  document.getElementById('modalOverlay').style.display='none';
+  document.body.style.overflow='';
+  document.body.style.overscrollBehavior='';
+}
+function openModal(title, bodyHtml){
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalBody').innerHTML=bodyHtml;
+  document.getElementById('modalOverlay').style.display='block';
+  document.body.style.overflow='hidden';
+  document.body.style.overscrollBehavior='none';
+}
+
+/* ── 오늘 인증 팝업 ── */
+function showTodayPopup(){
+  if(!g_todayEntries.length){
+    openModal('오늘 인증 현황','<div style="text-align:center;padding:32px;color:var(--muted)">아직 오늘 인증한 사람이 없어요</div>');
+    return;
+  }
+  var today=new Date();
+  var titleDate=today.getFullYear()+'. '+(today.getMonth()+1)+'. '+today.getDate()+'.';
+  var html=g_todayEntries.map(function(e,i){
+    var restBadge=e.isRest?'<span style="font-size:11px;color:#ff8fa3;margin-left:6px">휴식권</span>':'';
+    return '<div class="modal-row">'
+      +'<span class="modal-rank">'+(i+1)+'</span>'
+      +'<span class="modal-name">'+e.name+restBadge+'</span>'
+      +'<span class="modal-time">'+e.timeStr+'</span>'
+      +'</div>';
+  }).join('');
+  openModal('오늘 인증 ('+titleDate+') · '+g_todayEntries.length+'명', html);
+}
+
+/* ── 참여인원 + 짝꿍 팝업 ── */
+var g_partnersData = null;
+function showParticipantsPopup(){
+  // 모달 먼저 열기 (캐시 유무 관계없이)
+  openModal('참여인원 & 짝꿍 명단','<div style="text-align:center;padding:32px"><div class="spinner"></div><div style="margin-top:12px;color:var(--muted)">불러오는 중...</div></div>');
+  if(g_partnersData){
+    renderPartnersPopup(g_partnersData);
+    return;
+  }
+  loadSheetJsonp(null, PARTNERS_GID, function(err, data){
+    if(err||!data||!data.table){
+      document.getElementById('modalBody').innerHTML='<div style="text-align:center;padding:32px;color:#ff8fa3">불러오기 실패.<br><small style="color:var(--muted)">시트 공개 설정 확인 후 새로고침 해주세요</small></div>';
+      return;
+    }
+    g_partnersData=data.table;
+    renderPartnersPopup(g_partnersData);
+  });
+}
+function renderPartnersPopup(table){
+  var cols=table.cols, rows=table.rows;
+  var html='';
+  // 헤더 추론: 짝꿍 컬럼 찾기
+  var nameCol2=findCol(cols,['이름','Name']);
+  var partnerCol=findCol(cols,['짝꿍','파트너','Partner']);
+  if(nameCol2<0)nameCol2=0;
+  if(partnerCol<0)partnerCol=1;
+  // 데이터 수집
+  var pairs=[];
+  rows.forEach(function(row){
+    if(!row||!row.c)return;
+    var nc=row.c[nameCol2], pc=row.c[partnerCol];
+    if(!nc||!nc.v)return;
+    var name=String(nc.f||nc.v).trim();
+    var partner=pc&&pc.v?String(pc.f||pc.v).trim():'';
+    if(!name||!isNaN(Number(name)))return; // 숫자는 제외
+    pairs.push({name:name, partner:partner});
+  });
+  // 가나다순 정렬
+  pairs.sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+  var count=pairs.length;
+  pairs.forEach(function(p){
+    html+='<div class="partner-pair">'
+      +'<span class="partner-name">'+p.name+'</span>'
+      +(p.partner?'<span class="partner-arrow">↔</span><span class="partner-name" style="color:var(--accent2)">'+p.partner+'</span>':'')
+      +'</div>';
+  });
+  if(!html)html='<div style="text-align:center;padding:32px;color:var(--muted)">데이터를 불러올 수 없어요</div>';
+  document.getElementById('modalTitle').textContent='참여인원 & 짝꿍 명단 · '+count+'명';
+  document.getElementById('modalBody').innerHTML=html;
+}
+function findCol(cols,keywords){
+  return cols.findIndex(function(c){return c&&c.label&&keywords.some(function(k){return c.label.includes(k);});});
+}
+function parseDate(cell){
+  if(!cell)return null;
+  var v=cell.v, f=cell.f;
+  // Case 1: JSONP로 받은 실제 Date 객체
+  if(v instanceof Date){
+    return v.getFullYear()+'/'+(v.getMonth()+1)+'/'+v.getDate();
+  }
+  // Case 2: "Date(2026,5,3)" 문자열
+  if(typeof v==='string'){
+    var m=v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(m)return m[1]+'/'+(parseInt(m[2])+1)+'/'+parseInt(m[3]);
+  }
+  // Case 3: 숫자형 타임스탬프
+  if(typeof v==='number'){
+    var d=new Date(v);
+    return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+  }
+  // Case 4: 포맷된 문자열 "2026. 6. 3." 또는 "2026.6.3"
+  var s=f||String(v||'');
+  var m2=s.match(/(\d{4})[.\s]+(\d{1,2})[.\s]+(\d{1,2})/);
+  if(m2)return m2[1]+'/'+parseInt(m2[2])+'/'+parseInt(m2[3]);
+  var m3=s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m3)return m3[1]+'/'+parseInt(m3[2])+'/'+parseInt(m3[3]);
+  return null;
+}
+function d2s(d){return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();}
+function formatDisp(ds){var p=ds.split('/');return p.length===3?p[0]+'. '+p[1]+'. '+p[2]:ds;}
+</script>
+</body>
+</html>
