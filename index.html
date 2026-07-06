@@ -1286,38 +1286,53 @@ async function renderPhotoSlide(key, animDir){
 function addPhotoSwipe(){
   var body=document.getElementById('modalBody');
   if(!body) return;
-  var sx=0, sy=0, tracking=false;
+  var sx=0, sy=0, isHoriz=false, decided=false;
 
-  body.ontouchstart=function(e){
-    sx=e.touches[0].clientX; sy=e.touches[0].clientY; tracking=true;
+  // 기존 리스너 제거
+  body.ontouchstart=body.ontouchmove=body.ontouchend=null;
+  if(body._tsHandler){ body.removeEventListener('touchstart', body._tsHandler); }
+  if(body._tmHandler){ body.removeEventListener('touchmove',  body._tmHandler, {passive:false}); }
+  if(body._teHandler){ body.removeEventListener('touchend',   body._teHandler); }
+
+  body._tsHandler = function(e){
+    sx=e.touches[0].clientX; sy=e.touches[0].clientY;
+    isHoriz=false; decided=false;
   };
-  body.ontouchmove=function(e){
-    if(!tracking) return;
+
+  body._tmHandler = function(e){
     var dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy;
-    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>8){
-      e.stopPropagation();
-      var slide=document.getElementById('photoSlide');
-      if(slide){ slide.style.transition='none'; slide.style.transform='translateX('+dx+'px)'; }
+    if(!decided && (Math.abs(dx)>6||Math.abs(dy)>6)){
+      isHoriz = Math.abs(dx) > Math.abs(dy);
+      decided = true;
     }
-  };
-  body.ontouchend=function(e){
-    if(!tracking) return; tracking=false;
-    var dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+    if(!isHoriz) return; // 수직 → 기본 동작 허용
+    e.preventDefault();   // 수평 → 모달 이동/닫기 완전 차단
+    e.stopPropagation();
     var slide=document.getElementById('photoSlide');
-    if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)){
+    if(slide){ slide.style.transition='none'; slide.style.transform='translateX('+dx+'px)'; }
+  };
+
+  body._teHandler = function(e){
+    if(!decided||!isHoriz) return;
+    var dx=e.changedTouches[0].clientX-sx;
+    var slide=document.getElementById('photoSlide');
+    if(Math.abs(dx)>55){
       var dir=dx>0?-1:1;
       var nav=g_photoNav, nIdx=nav.idx+dir;
       if(nIdx>=0&&nIdx<nav.keys.length){
         nav.idx=nIdx;
         renderPhotoSlide(nav.keys[nIdx], dir);
       } else {
-        // 끝에서 스냅백
         if(slide){ slide.style.transition='transform .25s ease'; slide.style.transform='translateX(0)'; }
       }
     } else {
       if(slide){ slide.style.transition='transform .2s ease'; slide.style.transform='translateX(0)'; }
     }
   };
+
+  body.addEventListener('touchstart', body._tsHandler, {passive:true});
+  body.addEventListener('touchmove',  body._tmHandler, {passive:false}); // passive:false 로 preventDefault 허용
+  body.addEventListener('touchend',   body._teHandler, {passive:true});
 }
 
 function closeModal(){
