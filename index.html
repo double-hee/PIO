@@ -187,6 +187,7 @@
     .ptbl tr:last-child td{border-bottom:none;}
     .ptbl .done-mark{color:var(--accent);font-weight:700;}
     .ptbl .rest-mark{color:#ff8fa3;font-weight:700;}
+    .ptbl tr[data-key]:hover td{background:rgba(0,184,255,.06);}
     .ptbl .row-today td{background:rgba(0,229,160,.06);}
     .ptbl .row-missed td{color:var(--muted);}
     .no-result{text-align:center;padding:40px;color:var(--muted);font-size:14px;}
@@ -986,11 +987,17 @@ async function searchPersonal(){
     var cls=(r.isToday?'row-today':'')+(!r.isDone?' row-missed':'');
     var photoKey = p.name+'_'+r.ds;
     var hasPhoto = photoKeySet.has(photoKey);
-    var photoBtn = hasPhoto
-      ? '<span style="cursor:pointer;margin-left:5px" data-key="'+photoKey+'" onclick="showPersonalPhotos(this.dataset.key)">🖼️</span>'
+    // 사진 열: 있으면 아이콘, 없으면 빈칸
+    var photoCell = hasPhoto
+      ? '<td style="text-align:center;cursor:pointer" data-key="'+photoKey+'" onclick="showPersonalPhotos(this.dataset.key)">🖼️</td>'
+      : '<td></td>';
+    // 행 전체 클릭 시 사진 열기 (사진 있는 경우만)
+    var rowClick = hasPhoto
+      ? 'style="cursor:pointer" data-key="'+photoKey+'" onclick="showPersonalPhotos(this.dataset.key)"'
       : '';
-    return '<tr class="'+cls+'">'
-      +'<td>'+r.disp+photoBtn+'</td>'
+    return '<tr class="'+cls+'" '+rowClick+'>'
+      +'<td>'+r.disp+'</td>'
+      +photoCell
       +'<td>'+(r.isWorkout?'<span class="done-mark">실시</span>':'')+'</td>'
       +'<td>'+(r.isRest?'<span class="rest-mark">휴식권</span>':'')+'</td>'
       +'</tr>';
@@ -1002,7 +1009,7 @@ async function searchPersonal(){
     +'<span class="personal-summary">'+p.total+'일 달성 · '+p.pct+'% · '+(p.restUsed?'휴식권 사용':'휴식권 미사용')+'</span>'
     +'</div>'
     +'<div class="ptbl-scroll"><table class="ptbl">'
-    +'<thead><tr><th>날짜</th><th>체크</th><th>휴식권 사용</th></tr></thead>'
+    +'<thead><tr><th>날짜</th><th style="text-align:center">사진</th><th>체크</th><th>휴식권 사용</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table></div>';
 }
 
