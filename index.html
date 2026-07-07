@@ -562,6 +562,11 @@ function switchSub(s) {
   initPhotoDB().then(function(){
     // 오늘 날짜의 저장된 사진 불러오기
     loadPhotosForDate();
+    // 앱 시작 시 Drive에서 사진 복원 (인터넷 사용기록 삭제 후)
+    var savedName = localStorage.getItem('pio_name');
+    if(savedName && savedName.trim() && DRIVE_SCRIPT_URL){
+      loadPhotosFromDrive(savedName.trim());
+    }
     if(!loadFromCache()){
       setDataReady(false);
       setTimeout(function(){ loadStatus(); }, 0);
