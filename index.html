@@ -1027,6 +1027,8 @@ async function searchPersonal(){
   var today=new Date();today.setHours(0,0,0,0);
 
   // DB에서 이 사람의 사진 키 목록 가져오기
+  // Drive 사진 먼저 로드 (완료 대기)
+  if(name && DRIVE_SCRIPT_URL) await loadPhotosFromDrive(name);
   var photoKeySet = await getPhotoKeysForUser(p.name);
   // 세션 캐시 키도 포함
   Object.keys(g_sessionPhotos).forEach(function(k){
@@ -1229,8 +1231,11 @@ function saveSessionPhotos(){
 
 // 특정 날짜 사진을 DB에서 불러와 selectedFiles에 반영
 async function loadPhotosForDate(){
+  // 날짜 변경 시 이전 사진 즉시 제거
+  selectedFiles = [];
+  renderPhotoPreviews();
   var key = getCurrentPhotoKey();
-  if(!key){ selectedFiles=[]; renderPhotoPreviews(); return; }
+  if(!key) return;
 
   // 1차: IndexedDB
   var blobs = await loadPhotoDB(key);
