@@ -411,7 +411,7 @@
 <script>
 // ★ Apps Script 배포 URL을 아래에 입력하세요
 // script.google.com → 배포 → 웹앱 URL 복사 후 붙여넣기
-var DRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTjpSR4fS8aeEEwjFDX8KWjp3hHRBrDiqS13inDV3YnRnTmtby19cEKoY24s11jm_WxQ/exec';
+var DRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylPbvvd2abHe4fXtB5EXdu4l8kmARIxJm72ZyfARQDZmC2MyJ_G-O5aEo7LyEf_RcEAQ/exec';
 
 var SHEET_ID = '1msKfta9iO7v0lCkpfYbQk6nzrKFXsgm9ARHzQp1TfMA';
 // ★ 폼 응답 1 시트의 gid를 아래에 입력하세요
@@ -473,7 +473,19 @@ function deletePhotoDB(key){
 
 function getPhotoKeysForUser(name){
   return new Promise(function(resolve){
-    if(!g_photoDB){ resolve(new Set()); return; }
+    function addDriveMetaKeys(keys){
+      var meta = getDriveMeta();
+      Object.keys(meta).forEach(function(k){
+        if(k.indexOf(name+'_')===0 && meta[k]&&meta[k].length) keys.add(k);
+      });
+      // g_sessionPhotos 키도 포함
+      Object.keys(g_sessionPhotos).forEach(function(k){
+        if(k.indexOf(name+'_')===0 && g_sessionPhotos[k]&&g_sessionPhotos[k].length) keys.add(k);
+      });
+    }
+    if(!g_photoDB){
+      var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); return;
+    }
     try {
       var tx = g_photoDB.transaction('photos','readonly');
       var req = tx.objectStore('photos').getAllKeys();
@@ -481,10 +493,11 @@ function getPhotoKeysForUser(name){
         var keys = new Set((req.result||[]).filter(function(k){
           return k.indexOf(name+'_')===0;
         }));
+        addDriveMetaKeys(keys);
         resolve(keys);
       };
-      req.onerror = function(){ resolve(new Set()); };
-    } catch(e){ resolve(new Set()); }
+      req.onerror = function(){ var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); };
+    } catch(e){ var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); }
   });
 }
 
@@ -600,8 +613,12 @@ document.getElementById('certDate').addEventListener('change', function(){
 document.getElementById('certName').addEventListener('change',function(){
   var nv=this.value.trim();
   localStorage.setItem('pio_name',nv);
-  // 이름 변경 시 해당 날짜 사진 로드
-  loadPhotosForDate();
+  // Drive에서 이름에 해당하는 모든 사진 복원 후 날짜 사진 표시
+  if(nv && DRIVE_SCRIPT_URL){
+    loadPhotosFromDrive(nv).then(function(){ loadPhotosForDate(); });
+  } else {
+    loadPhotosForDate();
+  }
   // 참여인원 아닐 시 경고
   if(nv && allParticipants.length>0){
     var found=allParticipants.some(function(p){return p.name===nv;});
@@ -1159,9 +1176,21 @@ function saveDriveMeta(meta){
 function addDriveUrl(photoKey, url){
   var meta = getDriveMeta();
   if(!meta[photoKey]) meta[photoKey] = [];
-  if(!meta[photoKey].includes(url)) meta[photoKey].push(url);
+  var lh3 = toLh3Url(url); // lh3 형식으로 저장
+  if(!meta[photoKey].includes(lh3)) meta[photoKey].push(lh3);
   saveDriveMeta(meta);
 }
+// drive.google.com URL → lh3 URL 변환 (img 태그 직접 표시용)
+function toLh3Url(url){
+  if(!url) return url;
+  // https://drive.google.com/uc?export=view&id=FILE_ID → lh3 변환
+  var m = url.match(/[?&]id=([^&]+)/);
+  if(m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  // 이미 lh3 형식이면 그대로
+  if(url.indexOf('lh3.googleusercontent.com') >= 0) return url;
+  return url;
+}
+
 function getDriveUrls(photoKey){
   return getDriveMeta()[photoKey] || [];
 }
