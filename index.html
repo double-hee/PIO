@@ -1263,7 +1263,12 @@ async function loadPhotosFromDrive(name){
       });
     });
     g_drivePhotoKeys[name] = normalized;
+    // 기존 이 사용자의 Drive 메타 전체 제거 (잘못된 날짜 키 정리)
     var meta = getDriveMeta();
+    Object.keys(meta).forEach(function(k){
+      if(k.indexOf(name+'_')===0) delete meta[k];
+    });
+    // 정규화된 데이터로 새로 저장
     Object.keys(normalized).forEach(function(date){
       var key = name+'_'+date;
       meta[key] = normalized[date];
@@ -1729,12 +1734,27 @@ async function initTrack(){
 
 async function loadAndCache(key){
   if(!key) return null;
+  // 캐시 확인
+  if(g_sessionPhotos[key]&&g_sessionPhotos[key].length) return g_sessionPhotos[key];
+  // IndexedDB
   var blobs = await loadPhotoDB(key);
-  if(!blobs||!blobs.length) return null;
-  var urls = blobs.map(function(b){ return URL.createObjectURL(b); });
-  g_sessionPhotos[key] = urls;
-  preDecodeImages(urls);
-  return urls;
+  if(blobs&&blobs.length){
+    var urls=blobs.map(function(b){return URL.createObjectURL(b);});
+    g_sessionPhotos[key]=urls; preDecodeImages(urls); return urls;
+  }
+  // g_drivePhotoKeys
+  var kp=key.split('_'),kn=kp[0],kd=kp.slice(1).join('_');
+  if(g_drivePhotoKeys[kn]&&g_drivePhotoKeys[kn][kd]){
+    var urls=g_drivePhotoKeys[kn][kd].map(function(e){return typeof e==='object'?e.url:e;});
+    g_sessionPhotos[key]=urls; preDecodeImages(urls); return urls;
+  }
+  // localStorage Drive 메타
+  var entries=getDriveEntries(key);
+  if(entries.length){
+    var urls=entries.map(function(e){return e.url;});
+    g_sessionPhotos[key]=urls; preDecodeImages(urls); return urls;
+  }
+  return null;
 }
 
 async function shiftTrack(dir){
