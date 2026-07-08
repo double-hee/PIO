@@ -1037,6 +1037,8 @@ async function searchPersonal(){
   // DB에서 이 사람의 사진 키 목록 가져오기
   // Drive 사진 먼저 로드 (완료 대기)
   if(name && DRIVE_SCRIPT_URL) await loadPhotosFromDrive(name);
+  // Drive 사진 먼저 로드 (완료 후 photoKeySet 계산)
+  if(DRIVE_SCRIPT_URL) await loadPhotosFromDrive(name);
   var photoKeySet = await getPhotoKeysForUser(p.name);
   // 세션 캐시 키도 포함
   Object.keys(g_sessionPhotos).forEach(function(k){
@@ -1369,6 +1371,19 @@ function renderPhotoPreviews(){
   var shareBtn  = document.getElementById('shareBtn');
   container.innerHTML = '';
 
+  // Drive URL 기반 표시 (selectedFiles 없어도 g_sessionPhotos로 표시)
+  var key = getCurrentPhotoKey();
+  if(!selectedFiles.length && key && g_sessionPhotos[key] && g_sessionPhotos[key].length){
+    g_sessionPhotos[key].forEach(function(url){
+      var item = document.createElement('div');
+      item.className = 'photo-preview-item';
+      item.innerHTML = '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;-webkit-touch-callout:none;user-select:none;pointer-events:none" alt="Drive사진">';
+      container.appendChild(item);
+    });
+    if(addRow) addRow.style.display = 'flex';
+    return;
+  }
+
   selectedFiles.forEach(function(file, idx){
     var item = document.createElement('div');
     item.className = 'photo-preview-item';
@@ -1527,7 +1542,8 @@ async function getPhotoUrls(key){
   var name  = parts[0];
   var date  = parts.slice(1).join('_');
   if(g_drivePhotoKeys[name] && g_drivePhotoKeys[name][date]){
-    urls = g_drivePhotoKeys[name][date];
+    var items = g_drivePhotoKeys[name][date];
+    urls = items.map(function(e){ return typeof e==='object' ? e.url : e; });
     g_sessionPhotos[key] = urls;
     return urls;
   }
