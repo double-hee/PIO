@@ -221,12 +221,56 @@
   </style>
 </head>
 <body>
+<!-- 최초 실행 설정 모달 -->
+<div id="setupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#111827;border:1px solid rgba(0,229,160,.35);border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-sizing:border-box">
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="font-size:36px;margin-bottom:10px">💪</div>
+      <div style="font-size:18px;font-weight:700;color:#00e5a0">PIO 3기 챌린지</div>
+      <div style="font-size:13px;color:#6b7a99;margin-top:8px">처음 사용하시는군요!<br>내 이름과 짝꿍 이름을 입력해 주세요</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">내 이름 *</div>
+      <input id="setupMyName" type="text" placeholder="홍길동" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+    </div>
+    <div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">짝꿍 이름 *</div>
+      <input id="setupPartnerName" type="text" placeholder="짝꿍 이름" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+    </div>
+    <button onclick="saveSetup()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#00e5a0,#00b8ff);color:#091510;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">✅ 시작하기</button>
+  </div>
+</div>
+<!-- 설정 모달 -->
+<div id="settingsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#111827;border:1px solid rgba(0,229,160,.3);border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-sizing:border-box">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:24px;margin-bottom:6px">⚙️</div>
+      <div style="font-size:16px;font-weight:700;color:#00e5a0">설정</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">내 이름</div>
+      <input id="settingsMyName" type="text" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+    </div>
+    <div style="margin-bottom:24px">
+      <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">짝꿍 이름</div>
+      <input id="settingsPartnerName" type="text" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeSettings()" style="flex:1;padding:12px;border-radius:12px;border:1px solid #1e2d45;background:none;color:#8892a4;font-family:inherit;font-size:14px;cursor:pointer">취소</button>
+      <button onclick="saveSettings()" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#00e5a0,#00b8ff);color:#091510;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">저장</button>
+    </div>
+  </div>
+</div>
+
 
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
 
 <header>
-  <div class="badge">💪 100일 챌린지</div>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div class="badge">💪 100일 챌린지</div>
+    <button onclick="openSettings()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;line-height:1" title="설정">⚙️</button>
+  </div>
     <button id="pwaInstallBtn" onclick="installPWA()" style="display:none;margin:0 auto 16px;align-items:center;gap:8px;padding:9px 20px;border-radius:20px;border:1px solid rgba(0,229,160,.4);background:rgba(0,229,160,.1);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">
       📲 앱으로 설치하기
     </button>
@@ -477,15 +521,16 @@ function deletePhotoDB(key){
 function getPhotoKeysForUser(name){
   return new Promise(function(resolve){
     function addDriveMetaKeys(keys){
-      // localStorage Drive 메타에서 이 이름의 날짜 키만 추가
+      // localStorage Drive 메타 (빈 배열 제외)
       var meta = getDriveMeta();
       Object.keys(meta).forEach(function(k){
-        if(k.indexOf(name+'_')===0 && meta[k]&&meta[k].length) keys.add(k);
+        if(k.indexOf(name+'_')===0 && meta[k] && meta[k].length > 0) keys.add(k);
       });
-      // g_drivePhotoKeys에서도 추가 (loadPhotosFromDrive 결과 별도 관리)
+      // g_drivePhotoKeys (빈 배열 제외)
       if(g_drivePhotoKeys[name]){
         Object.keys(g_drivePhotoKeys[name]).forEach(function(date){
-          keys.add(name+'_'+date);
+          if(g_drivePhotoKeys[name][date] && g_drivePhotoKeys[name][date].length > 0)
+            keys.add(name+'_'+date);
         });
       }
     }
@@ -494,13 +539,21 @@ function getPhotoKeysForUser(name){
     }
     try {
       var tx = g_photoDB.transaction('photos','readonly');
-      var req = tx.objectStore('photos').getAllKeys();
-      req.onsuccess = function(){
-        var keys = new Set((req.result||[]).filter(function(k){
-          return k.indexOf(name+'_')===0;
-        }));
-        addDriveMetaKeys(keys);
-        resolve(keys);
+      // getAllKeys 대신 커서로 실제 blob 있는 키만 수집
+      var keys = new Set();
+      var req = tx.objectStore('photos').openCursor();
+      req.onsuccess = function(e){
+        var cursor = e.target.result;
+        if(cursor){
+          var k = cursor.key;
+          // 이 이름의 키이고, 실제 blob 데이터가 있는 경우만 추가
+          if(k.indexOf(name+'_')===0 && cursor.value && cursor.value.length > 0)
+            keys.add(k);
+          cursor.continue();
+        } else {
+          addDriveMetaKeys(keys);
+          resolve(keys);
+        }
       };
       req.onerror = function(){ var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); };
     } catch(e){ var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); }
@@ -580,13 +633,10 @@ function switchSub(s) {
 (function(){
   // IndexedDB 초기화 후 앱 시작
   initPhotoDB().then(function(){
-    // 오늘 날짜의 저장된 사진 불러오기
-    loadPhotosForDate();
-    // 앱 시작 시 Drive에서 사진 복원 (인터넷 사용기록 삭제 후)
-    var savedName = localStorage.getItem('pio_name');
-    if(savedName && savedName.trim() && DRIVE_SCRIPT_URL){
-      loadPhotosFromDrive(savedName.trim());
-    }
+    initSetup();                 // 최초 설정 확인 (요건1)
+    applyMyName();               // 내 이름 자동입력 (요건9)
+    restoreFromDriveIfNeeded();  // IndexedDB 없을 때만 Drive 복원 (요건6)
+    loadPhotosForDate();         // 현재 날짜 사진 로드
     if(!loadFromCache()){
       setDataReady(false);
       setTimeout(function(){ loadStatus(); }, 0);
@@ -620,7 +670,7 @@ document.getElementById('certDate').addEventListener('change', function(){
 document.getElementById('certName').addEventListener('change',function(){
   var nv=this.value.trim();
   localStorage.setItem('pio_name',nv);
-  // Drive에서 이름에 해당하는 모든 사진 복원 후 날짜 사진 표시
+  updatePhotoSectionVisibility(); // 내 이름일 때만 사진 섹션 표시 (요건3)
   if(nv && DRIVE_SCRIPT_URL){
     loadPhotosFromDrive(nv).then(function(){ loadPhotosForDate(); });
   } else {
@@ -819,10 +869,12 @@ function loadStatus(){
     if (btn) btn.classList.remove('spinning');
     if (err) {
       if (!isBackground) showLoadError('시트를 불러올 수 없어요. 새로고침을 눌러 다시 시도하세요.<br><small>' + err.message + '</small>');
+      setDataReady(true); // 에러 시에도 버튼 잠금 해제
       return;
     }
     if (!isFormResponseSheet(data.table)) {
       if (!isBackground) showLoadError('폼 응답 시트가 아닌 것 같아요.<br><small>gid=' + gid + '</small>');
+      setDataReady(true); // 잠금 해제
       return;
     }
     processSheetData(data.table);
@@ -2012,6 +2064,29 @@ function clearDriveCache(){
   g_drivePhotoKeys={};
   Object.keys(g_sessionPhotos).forEach(function(k){delete g_sessionPhotos[k];});
   alert('캐시 초기화 완료'); location.reload();
+}
+function openSettings(){
+  document.getElementById('settingsMyName').value = g_myName;
+  document.getElementById('settingsPartnerName').value = g_partnerName;
+  var el = document.getElementById('settingsOverlay');
+  if(el) el.style.display = 'flex';
+}
+function closeSettings(){
+  var el = document.getElementById('settingsOverlay');
+  if(el) el.style.display = 'none';
+}
+function saveSettings(){
+  var myName = document.getElementById('settingsMyName').value.trim();
+  var partnerName = document.getElementById('settingsPartnerName').value.trim();
+  if(!myName || !partnerName){ alert('이름을 모두 입력해 주세요.'); return; }
+  g_myName = myName;
+  g_partnerName = partnerName;
+  localStorage.setItem('pio_my_name', myName);
+  localStorage.setItem('pio_partner_name', partnerName);
+  localStorage.setItem('pio_name', myName);
+  closeSettings();
+  applyMyName();
+  alert('✅ 설정이 저장됐습니다.');
 }
 function closeModal(){
   document.getElementById('modalOverlay').style.display='none';
