@@ -1136,7 +1136,8 @@ async function searchPersonal(){
   var photoKeySet = await getPhotoKeysForUser(p.name);
   // 세션 캐시 키도 포함
   Object.keys(g_sessionPhotos).forEach(function(k){
-    if(k.indexOf(p.name+'_')===0) photoKeySet.add(k);
+    if(k.indexOf(p.name+'_')===0 && g_sessionPhotos[k] && g_sessionPhotos[k].length > 0)
+      photoKeySet.add(k);
   });
 
   var rows=[];
