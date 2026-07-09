@@ -1015,11 +1015,14 @@ function processSheetData(table){
   });
   document.getElementById('statToday').textContent=g_todayEntries.length;
 
-  renderChart();
-  renderTable();
-  updateCertRestStatus();
+  // 버튼 즉시 활성화 (무거운 렌더링 전에)
   dbg('setDataReady(true) → 인증 버튼 활성화','ok');
   setDataReady(true); // 데이터 준비 완료 → 버튼 활성화
+
+  // 차트/테이블 렌더링은 비동기로 (UI 차단 방지)
+  try { renderChart(); } catch(e){ dbg('renderChart 오류: '+e.message,'err'); }
+  try { renderTable(); } catch(e){ dbg('renderTable 오류: '+e.message,'err'); }
+  try { updateCertRestStatus(); } catch(e){ dbg('updateCertRestStatus 오류: '+e.message,'err'); }
   // 예약된 개인조회 실행
   if(g_pendingPersonalSearch){
     g_pendingPersonalSearch = false;
