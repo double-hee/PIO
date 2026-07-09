@@ -638,6 +638,8 @@ function switchSub(s) {
     if(!loadFromCache()){
       setDataReady(false);
       setTimeout(function(){ loadStatus(); }, 0);
+      // 안전망: 15초 후에도 안 풀리면 강제 활성화
+      setTimeout(function(){ if(!g_dataReady) setDataReady(true); }, 15000);
     } else {
       setDataReady(true);
     }
