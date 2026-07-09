@@ -2109,6 +2109,26 @@ function parseDate(cell){
   if(m3)return m3[1]+'/'+parseInt(m3[2])+'/'+parseInt(m3[3]);
   return null;
 }
+
+function parseTsDate(cell){
+  if(!cell||!cell.v)return null;
+  var v=cell.v;
+  if(v instanceof Date)return v;
+  if(typeof v==='number')return new Date(v);
+  return null;
+}
+
+function isInRange(dateStr, start, today){
+  var p=dateStr.split('/').map(Number);
+  var d=new Date(p[0],p[1]-1,p[2]); d.setHours(0,0,0,0);
+  return d>=start && d<=today;
+}
+
+function formatTime(d){
+  if(!d)return '';
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
 function d2s(d){return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();}
 function formatDisp(ds){var p=ds.split('/');return p.length===3?p[0]+'. '+p[1]+'. '+p[2]:ds;}
 </script>
