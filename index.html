@@ -511,11 +511,15 @@ function loadPhotoDB(key){
 }
 
 function deletePhotoDB(key){
-  if(!g_photoDB) return;
-  try {
-    var tx = g_photoDB.transaction('photos','readwrite');
-    tx.objectStore('photos').delete(key);
-  } catch(e){}
+  return new Promise(function(resolve){
+    if(!g_photoDB){ resolve(); return; }
+    try {
+      var tx = g_photoDB.transaction('photos','readwrite');
+      tx.objectStore('photos').delete(key);
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror   = function(){ resolve(); };
+    } catch(e){ resolve(); }
+  });
 }
 
 function getPhotoKeysForUser(name){
@@ -1383,7 +1387,7 @@ function renderPhotoPreviews(){
 }
 
 // IndexedDB 기반 사진 삭제 (X 버튼)
-function removeFile(idx){
+async function removeFile(idx){
   var key = getCurrentPhotoKey();
   var driveId = null;
   var entries = getDriveEntries(key);
@@ -1392,8 +1396,8 @@ function removeFile(idx){
   // 1. selectedFiles에서 제거
   selectedFiles.splice(idx, 1);
 
-  // 2. IndexedDB 업데이트 (saveSessionPhotos 내부에서 처리)
-  saveSessionPhotos();
+  // 2. IndexedDB 업데이트 - await으로 삭제 완료 보장
+  await saveSessionPhotos();
 
   // 3. Drive 삭제 (비동기)
   if(driveId && DRIVE_SCRIPT_URL){
@@ -1457,7 +1461,7 @@ async function removeDrivePhoto(idx){
   renderPhotoPreviews();
 }
 
-function saveSessionPhotos(){
+async function saveSessionPhotos(){
   var key = getCurrentPhotoKey();
   if(!key) return;
   if(selectedFiles.length){
@@ -1478,7 +1482,7 @@ function saveSessionPhotos(){
     }
   } else {
     delete g_sessionPhotos[key];
-    deletePhotoDB(key);
+    await deletePhotoDB(key); // 삭제 완료까지 대기 (복원 방지)
   }
 }
 
