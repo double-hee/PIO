@@ -1529,11 +1529,23 @@ async function loadPhotosForDate(){
   var key = getCurrentPhotoKey();
   if(!key) return;
 
-  // IndexedDB에서만 로드
+  // 1차: IndexedDB
   var blobs = await loadPhotoDB(key);
   if(blobs && blobs.length){
     selectedFiles = blobs;
     g_sessionPhotos[key] = blobs.map(function(b){ return URL.createObjectURL(b); });
+    dbg('loadPhotosForDate: IndexedDB '+blobs.length+'장','ok');
+    renderPhotoPreviews(); return;
+  }
+  // 2차: g_drivePhotoKeys (startup restore 데이터, 삭제 시 동기화됨)
+  var kp=key.split('_'), kn=kp[0], kd=kp.slice(1).join('_');
+  if(g_drivePhotoKeys[kn] && g_drivePhotoKeys[kn][kd] && g_drivePhotoKeys[kn][kd].length){
+    var driveItems = g_drivePhotoKeys[kn][kd];
+    var driveUrls = driveItems.map(function(e){return typeof e==='object'?e.url:e;});
+    g_sessionPhotos[key] = driveUrls;
+    dbg('loadPhotosForDate: Drive '+driveUrls.length+'장','ok');
+  } else {
+    dbg('loadPhotosForDate: 사진 없음 (key='+key+')','warn');
   }
   renderPhotoPreviews();
 }
@@ -1593,6 +1605,36 @@ function photoModalTitle(key){
   var dateStr=parts.join('/').replace(/\//g,'. ');
   var total=nav.keys.length;
   return '🖼️ '+dateStr+(total>1?' ('+(nav.idx+1)+'/'+total+')':'');
+}
+
+
+async function onPhotoRowTap(e, el){
+  e.preventDefault();
+  e.stopPropagation();
+  var key = el.dataset.key || (el.closest('[data-key]') && el.closest('[data-key]').dataset.key);
+  if(key) showPersonalPhotos(key);
+}
+
+async function showPersonalPhotos(key){
+  dbg('사진 팝업 열기: '+key,'ok');
+  var user = key.substring(0, key.indexOf('_'));
+
+  // 해당 유저의 사진 있는 날짜 목록 구성
+  var dbKeys = await getPhotoKeysForUser(user);
+  // 세션 캐시 키도 포함
+  Object.keys(g_sessionPhotos).forEach(function(k){
+    if(k.indexOf(user+'_')===0) dbKeys.add(k);
+  });
+  g_photoNav.user = user;
+  g_photoNav.keys = Array.from(dbKeys).sort(function(a,b){
+    var pa=a.replace(user+'_','').split('/').map(Number);
+    var pb=b.replace(user+'_','').split('/').map(Number);
+    return (pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
+  });
+  g_photoNav.idx = g_photoNav.keys.indexOf(key);
+  if(g_photoNav.idx<0){ g_photoNav.keys.push(key); g_photoNav.idx=g_photoNav.keys.length-1; }
+
+  await renderPhotoSlide(key, null);
 }
 
 async function renderPhotoSlide(key, animDir){
