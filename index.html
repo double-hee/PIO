@@ -631,17 +631,21 @@ function switchSub(s) {
 (function(){
   // IndexedDB 초기화 후 앱 시작
   initPhotoDB().then(function(){
-    initSetup();                 // 최초 설정 확인 (요건1)
-    applyMyName();               // 내 이름 자동입력 (요건9)
-    restoreFromDriveIfNeeded();  // IndexedDB 없을 때만 Drive 복원 (요건6)
-    loadPhotosForDate();         // 현재 날짜 사진 로드
-    if(!loadFromCache()){
+    dbg('initPhotoDB 완료','ok');
+    initSetup();
+    applyMyName();
+    restoreFromDriveIfNeeded();
+    loadPhotosForDate();
+    var cached = loadFromCache();
+    dbg('loadFromCache: '+(cached?'✅ 캐시 사용':'❌ 캐시 없음, 시트 로드 필요'), cached?'ok':'warn');
+    if(!cached){
       setDataReady(false);
-      setTimeout(function(){ loadStatus(); }, 0);
-      // 안전망: 15초 후에도 안 풀리면 강제 활성화
-      setTimeout(function(){ if(!g_dataReady) setDataReady(true); }, 15000);
+      dbg('setDataReady(false) → 시트 로딩 시작','warn');
+      setTimeout(function(){ dbg('loadStatus() 호출','warn'); loadStatus(); }, 0);
+      setTimeout(function(){ if(!g_dataReady){ dbg('⚠️ 15초 안전망 발동','err'); setDataReady(true); } }, 15000);
     } else {
       setDataReady(true);
+      dbg('setDataReady(true) → 캐시로 완료','ok');
     }
   });
 })();
@@ -851,15 +855,18 @@ function isFormResponseSheet(table) {
 }
 
 function loadStatus(){
+  dbg('loadStatus() 내부 진입','ok');
   var btn=document.getElementById('refreshBtn');
+  if(!btn){ dbg('⚠️ refreshBtn 없음 - 백그라운드 로드로 전환','warn'); }
   // 수동 새로고침이면 캐시 무효화
-  if(btn.classList.contains('spinning')){
+  if(btn && btn.classList.contains('spinning')){
     clearCache();
   } else {
     // 자동 로드: 캐시 있으면 즉시 사용
-    if(loadFromCache()) return;
+    if(loadFromCache()){ dbg('loadFromCache 히트 - 완료','ok'); return; }
   }
-  btn.classList.add('spinning');
+  if(btn) btn.classList.add('spinning');
+  dbg('JSONP 요청 시작 (gid='+FORM_GID+')','warn');
   document.getElementById('lastUpdated').textContent='불러오는 중...';
   setLoading();
 
@@ -889,10 +896,18 @@ function loadSheetJsonp(sheetName, gid, cb){
     clearTimeout(timer);
     var s=document.getElementById('jscript_'+cbName);if(s)s.remove();
     delete window[cbName];
-    if(!res||res.status!=='ok'){cb(new Error(res&&res.errors?res.errors[0].message:'error'));}
-    else{cb(null,res);}
+    if(!res||res.status!=='ok'){
+      dbg('JSONP 오류: '+(res&&res.errors?res.errors[0].message:'unknown'),'err');
+      cb(new Error(res&&res.errors?res.errors[0].message:'error'));
+    } else {
+      dbg('JSONP 성공 - 행: '+(res.table&&res.table.rows?res.table.rows.length:0)+'개','ok');
+      cb(null,res);
+    }
   };
-  timer=setTimeout(function(){var s=document.getElementById('jscript_'+cbName);if(s)s.remove();delete window[cbName];cb(new Error('Timeout'));},7000);
+  timer=setTimeout(function(){
+    dbg('JSONP 7초 Timeout - 에러 처리','err');
+    var s=document.getElementById('jscript_'+cbName);if(s)s.remove();delete window[cbName];cb(new Error('Timeout'));
+  },7000);
   var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=responseHandler:'+cbName
     +(sheetName?'&sheet='+encodeURIComponent(sheetName):'')+(gid?'&gid='+gid:'');
   var sc=document.createElement('script');sc.id='jscript_'+cbName;
@@ -914,6 +929,7 @@ function setTimestamp(){
 
 /* ══ 데이터 처리 ══ */
 function processSheetData(table){
+  dbg('processSheetData 시작 - 행: '+(table.rows?table.rows.length:0)+'개','ok');
   var cols=table.cols;
   var rows=table.rows;
 
@@ -1002,6 +1018,7 @@ function processSheetData(table){
   renderChart();
   renderTable();
   updateCertRestStatus();
+  dbg('setDataReady(true) → 인증 버튼 활성화','ok');
   setDataReady(true); // 데이터 준비 완료 → 버튼 활성화
   // 예약된 개인조회 실행
   if(g_pendingPersonalSearch){
@@ -1930,6 +1947,22 @@ async function restoreFromDriveIfNeeded(){
   }
 }
 
+var g_debugLog = [];
+function toggleDebug(){
+  var p=document.getElementById('debugPanel');
+  p.style.display = p.style.display==='none'?'block':'none';
+}
+function dbg(msg, type){
+  var t=new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  var color = type==='ok'?'#00e5a0':type==='err'?'#ff6b6b':type==='warn'?'#ffd700':'#8892a4';
+  g_debugLog.push({t,msg,color});
+  var el=document.getElementById('debugLog');
+  if(el) el.innerHTML=g_debugLog.slice(-20).map(function(l){
+    return '<div style="color:'+l.color+'">'+l.t+' '+l.msg+'</div>';
+  }).join('');
+  console.log('[PIO]',msg);
+}
+
 function clearDriveCache(){
   if(!confirm('Drive 사진 캐시를 초기화합니다.')) return;
   localStorage.removeItem('pio_drive_meta');
@@ -2076,7 +2109,14 @@ function parseDate(cell){
 function d2s(d){return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();}
 function formatDisp(ds){var p=ds.split('/');return p.length===3?p[0]+'. '+p[1]+'. '+p[2]:ds;}
 </script>
-  <div style='text-align:center;padding:4px 0 12px'><button onclick='clearDriveCache()' style='background:none;border:none;color:rgba(255,255,255,.12);font-size:10px;cursor:pointer;padding:4px 12px'>⚙ 캐시 초기화</button></div>
+  <div style='text-align:center;padding:4px 0 12px;display:flex;justify-content:center;gap:12px'>
+    <button onclick='clearDriveCache()' style='background:none;border:none;color:rgba(255,255,255,.12);font-size:10px;cursor:pointer;padding:4px 12px'>⚙ 캐시 초기화</button>
+    <button onclick='toggleDebug()' style='background:none;border:none;color:rgba(255,255,255,.12);font-size:10px;cursor:pointer;padding:4px 12px'>🔍 디버그</button>
+  </div>
+  <div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#0d1520;border-top:1px solid #1e2d45;padding:12px;font-size:11px;font-family:monospace;max-height:200px;overflow-y:auto;z-index:8888">
+    <div style="color:#00e5a0;margin-bottom:6px">🔍 디버그 로그 <span onclick="toggleDebug()" style="cursor:pointer;color:#6b7a99;float:right">✕</span></div>
+    <div id="debugLog"></div>
+  </div>
 
   <script>
     // 서비스 워커 등록 (GitHub Pages에서만)
