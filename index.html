@@ -472,6 +472,7 @@ var g_myName         = localStorage.getItem('pio_my_name')    || '';
 var g_partnerName    = localStorage.getItem('pio_partner_name') || '';
 var g_sessionPhotos  = {}; // {name_dateKey: [objectURL, ...]} - cert form용
 var g_drivePhotoKeys = {}; // {name: {date: [url, ...]}} - 개인조회용 Drive 데이터
+var g_photoNav       = { keys:[], idx:0, user:'' }; // 개인조회 사진 슬라이더
 var g_photoDB = null;
 
 /* ── IndexedDB 사진 저장소 ── */
@@ -1677,21 +1678,29 @@ async function showPersonalPhotos(key){
     (g_drivePhotoKeys[user]?Object.keys(g_drivePhotoKeys[user]).length:0),'ok');
 
   // 해당 유저의 사진 있는 날짜 목록 구성
+  dbg('getPhotoKeysForUser 호출','ok');
   var dbKeys = await getPhotoKeysForUser(user);
+  dbg('dbKeys 수: '+dbKeys.size,'ok');
   // 세션 캐시 키도 포함
   Object.keys(g_sessionPhotos).forEach(function(k){
     if(k.indexOf(user+'_')===0) dbKeys.add(k);
   });
+  dbg('세션캐시 포함 후 keys: '+dbKeys.size,'ok');
   g_photoNav.user = user;
-  g_photoNav.keys = Array.from(dbKeys).sort(function(a,b){
-    var pa=a.replace(user+'_','').split('/').map(Number);
-    var pb=b.replace(user+'_','').split('/').map(Number);
-    return (pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
-  });
+  try {
+    g_photoNav.keys = Array.from(dbKeys).sort(function(a,b){
+      var pa=a.replace(user+'_','').split('/').map(Number);
+      var pb=b.replace(user+'_','').split('/').map(Number);
+      return (pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
+    });
+  } catch(e){ dbg('keys sort 오류: '+e.message,'err'); g_photoNav.keys=[key]; }
   g_photoNav.idx = g_photoNav.keys.indexOf(key);
   if(g_photoNav.idx<0){ g_photoNav.keys.push(key); g_photoNav.idx=g_photoNav.keys.length-1; }
+  dbg('photoNav idx='+g_photoNav.idx+' total='+g_photoNav.keys.length,'ok');
 
+  dbg('renderPhotoSlide 호출','ok');
   await renderPhotoSlide(key, null);
+  dbg('renderPhotoSlide 완료','ok');
 }
 
 async function renderPhotoSlide(key, animDir){
