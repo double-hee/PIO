@@ -528,9 +528,14 @@ function getPhotoKeysForUser(name){
     function addDriveMetaKeys(keys){
       // localStorage Drive 메타 (빈 배열 제외)
       var meta = getDriveMeta();
+      var added=[];
       Object.keys(meta).forEach(function(k){
-        if(k.indexOf(name+'_')===0 && meta[k] && meta[k].length > 0) keys.add(k);
+        if(k.indexOf(name+'_')===0 && meta[k] && meta[k].length > 0){
+          keys.add(k);
+          added.push(k.replace(name+'_','')+':'+meta[k].length+'장');
+        }
       });
+      if(added.length) dbg('Drive메타 키: '+added.join(', '),'ok');
       // g_drivePhotoKeys 미사용 - localStorage 메타가 삭제 반영으로 더 정확
     }
     if(!g_photoDB){
@@ -541,15 +546,18 @@ function getPhotoKeysForUser(name){
       // getAllKeys 대신 커서로 실제 blob 있는 키만 수집
       var keys = new Set();
       var req = tx.objectStore('photos').openCursor();
+      var idbKeys=[];
       req.onsuccess = function(e){
         var cursor = e.target.result;
         if(cursor){
           var k = cursor.key;
-          // 이 이름의 키이고, 실제 blob 데이터가 있는 경우만 추가
-          if(k.indexOf(name+'_')===0 && cursor.value && cursor.value.length > 0)
+          if(k.indexOf(name+'_')===0 && cursor.value && cursor.value.length > 0){
             keys.add(k);
+            idbKeys.push(k.replace(name+'_','')+':'+cursor.value.length+'장');
+          }
           cursor.continue();
         } else {
+          if(idbKeys.length) dbg('IndexedDB 키: '+idbKeys.join(', '),'ok');
           addDriveMetaKeys(keys);
           resolve(keys);
         }
