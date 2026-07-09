@@ -937,20 +937,22 @@ function processSheetData(table){
   var nameCol=findCol(cols,['이름','Name']),dateCol=findCol(cols,['날짜','date']),restCol=findCol(cols,['휴식권','Rest']);
   var tsCol=findCol(cols,['타임스탬프','Timestamp','timestamp']);
   if(nameCol<0)nameCol=2; if(dateCol<0)dateCol=1; if(restCol<0)restCol=3; if(tsCol<0)tsCol=0;
+  dbg('컬럼: 이름='+nameCol+' 날짜='+dateCol+' 휴식='+restCol+' ts='+tsCol,'ok');
 
   // 시작일 / 오늘
   var start=new Date('2026-06-03');start.setHours(0,0,0,0);
   var today=new Date();today.setHours(0,0,0,0);
   g_elapsed=Math.min(Math.floor((today-start)/86400000)+1,100);
   g_todayStr=d2s(today);
+  dbg('elapsed='+g_elapsed+' today='+g_todayStr,'ok');
 
   // 오늘 인증 항목 수집용
   var rawTodayEntries = [];
 
-  // 디버그: 컬럼 구조 확인
-
   // 행 파싱
   var personMap={};
+  var parseErr=0, parseOk=0;
+  try {
   rows.forEach(function(row){
     if(!row||!row.c)return;
     var cells=row.c;
@@ -973,12 +975,16 @@ function processSheetData(table){
       rawTodayEntries.push({name:name,timeStr:timeStr,tsMs:tsDate?tsDate.getTime():0,isRest:isRest});
     }
 
+    parseOk++;
     if(!personMap[name])personMap[name]={name:name,byDate:{}};
     var p=personMap[name];
     // 같은 날 중복 제출 처리: 실시가 우선
     if(!p.byDate.hasOwnProperty(dateStr)){p.byDate[dateStr]=isRest;}
     else if(p.byDate[dateStr]===true&&!isRest){p.byDate[dateStr]=false;} // 실시로 덮어씀
   });
+
+  } catch(e){ dbg('❌ 행 파싱 오류: '+e.message+' (stack: '+e.stack.split('\n')[0]+')','err'); }
+  dbg('행 파싱 완료 - 유효:'+parseOk+' 오류:'+parseErr+' 사람:'+Object.keys(personMap).length+'명','ok');
 
   // 참가자별 통계 계산
   allParticipants=Object.values(personMap).map(function(p){
@@ -999,12 +1005,16 @@ function processSheetData(table){
     return{name:p.name,total:total,workout:wc,rest:rc,restUsed:restDates.length>0,restDate:restDate,missed:missed,pct:pct,lastDate:lastDate,todayDone:todayDone,byDate:p.byDate};
   });
 
+  dbg('참가자 통계 계산 완료: '+allParticipants.length+'명','ok');
   // 가나다순 정렬
-  allParticipants.sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+  try {
+    allParticipants.sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+  } catch(e){ dbg('❌ sort 오류: '+e.message,'err'); }
+  dbg('정렬 완료','ok');
 
   // 요약 스탯
-  document.getElementById('statPeople').textContent=allParticipants.length;
-  // statToday는 rawTodayEntries 처리 후 업데이트됨
+  try { document.getElementById('statPeople').textContent=allParticipants.length; } catch(e){}
+  dbg('statPeople 업데이트 완료','ok');
 
   // 오늘 인증 항목 정렬 + 중복 제거 (첫 제출 기준)
   rawTodayEntries.sort(function(a,b){return a.tsMs-b.tsMs;});
