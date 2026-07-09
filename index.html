@@ -1681,9 +1681,10 @@ async function showPersonalPhotos(key){
   dbg('getPhotoKeysForUser 호출','ok');
   var dbKeys = await getPhotoKeysForUser(user);
   dbg('dbKeys 수: '+dbKeys.size,'ok');
-  // 세션 캐시 키도 포함
+  // 세션 캐시 키도 포함 (비어있지 않은 것만)
   Object.keys(g_sessionPhotos).forEach(function(k){
-    if(k.indexOf(user+'_')===0) dbKeys.add(k);
+    if(k.indexOf(user+'_')===0 && g_sessionPhotos[k] && g_sessionPhotos[k].length > 0)
+      dbKeys.add(k);
   });
   dbg('세션캐시 포함 후 keys: '+dbKeys.size,'ok');
   g_photoNav.user = user;
