@@ -1395,7 +1395,13 @@ async function shareMedia(){
     return;
   }
   try {
-    var shareData = { files: selectedFiles.slice(), title: 'PIO 3기 챌린지 운동 인증' };
+    // IndexedDB에서 로드된 파일은 Blob이라 File로 변환 (canShare는 File만 허용)
+    var shareFiles = selectedFiles.map(function(f, i){
+      if(f instanceof File) return f;
+      var ext = (f.type && f.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
+      return new File([f], 'PIO_'+(i+1)+'.'+ext, {type: f.type || 'image/jpeg'});
+    });
+    var shareData = { files: shareFiles, title: 'PIO 3기 챌린지 운동 인증' };
     var canShareFiles = navigator.canShare && navigator.canShare(shareData);
     dbg('canShare(files)='+canShareFiles+' 파일수='+selectedFiles.length+
         ' 타입=['+selectedFiles.map(function(f){return f.type;}).join(',')+']'+
