@@ -1649,10 +1649,15 @@ function buildSlideImgs(urls){
   return h;
 }
 function buildSlideHtml(urls){
-  // photoWrapper: overflow:hidden으로 애니메이션 중 높이 유지 → 모달 위치 불변
+  // photoWrapper: overflow:hidden으로 스와이프 애니메이션 클리핑
+  // photoTrack: prev/current/next 3개 슬라이드를 가로로 배치, transform으로 이동
   return '<div id="photoWrapper" style="overflow:hidden;position:relative">'
-    +'<div id="photoSlide" style="padding:0 4px">'+buildSlideImgs(urls)+'</div>'
-    +'</div>';
+    + '<div id="photoTrack" style="display:flex;">'
+      + '<div id="photoPrev" class="pslide" style="flex:0 0 auto;padding:0 4px;box-sizing:border-box"></div>'
+      + '<div id="photoSlide" class="pslide" style="flex:0 0 auto;padding:0 4px;box-sizing:border-box">'+buildSlideImgs(urls)+'</div>'
+      + '<div id="photoNext" class="pslide" style="flex:0 0 auto;padding:0 4px;box-sizing:border-box"></div>'
+    + '</div>'
+  + '</div>';
 }
 
 function photoModalTitle(key){
