@@ -330,7 +330,15 @@
 
         <!-- 사진/동영상 등록 (내 이름일 때만 표시) -->
         <div class="photo-section" id="photoSection" style="display:flex;flex-direction:column;gap:12px">
-          <div class="flabel" style="margin-bottom:0">📸 사진 등록 <span style="color:var(--muted);font-weight:400;letter-spacing:0">(선택 · 최대 5개)</span></div>
+          <div class="flabel" id="photoLabelNormal" style="margin-bottom:0">📸 사진 등록 <span style="color:var(--muted);font-weight:400;letter-spacing:0">(선택 · 최대 5개)</span></div>
+          <div id="photoShareBar" style="display:none;align-items:center;justify-content:space-between;gap:8px">
+            <button onclick="toggleSelectAll()" style="background:none;border:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;padding:4px 0">전체 선택</button>
+            <span id="shareSelCount" style="color:var(--muted);font-size:12px">0장 선택</span>
+            <div style="display:flex;gap:8px">
+              <button onclick="confirmShareSelection()" style="background:var(--accent);color:#091510;border:none;border-radius:14px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer">공유</button>
+              <button onclick="cancelShareMode()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:14px;padding:6px 14px;font-size:13px;cursor:pointer">취소</button>
+            </div>
+          </div>
           <div class="photo-previews" id="photoPreviews"></div>
           <div class="photo-add-row" id="photoAddRow">
             <button class="photo-add-btn" onclick="triggerFileInput('gallery')">
@@ -342,7 +350,7 @@
           </div>
           <input type="file" id="galleryInput" accept="image/*" multiple style="display:none" onchange="onFilesSelected(this.files)">
           <input type="file" id="photoCapture" accept="image/*" capture="environment" style="display:none" onchange="onFilesSelected(this.files)">
-          <button class="share-btn" id="shareBtn" onclick="shareMedia()">
+          <button class="share-btn" id="shareBtn" onclick="enterShareMode()">
             <span>📤</span> 공유하기
           </button>
         </div>
@@ -1185,6 +1193,8 @@ async function searchPersonal(){
 
 /* ── 사진/동영상 등록 ── */
 var selectedFiles = []; // 선택된 파일 배열 (최대 2개)
+var g_shareMode = false; // true: 공유 선택 모드
+var g_shareSelected = new Set(); // 공유 선택된 인덱스 (비어있으면 = 전체선택 취급 안함, 아래 로직 참고)
 
 
 
@@ -1356,30 +1366,101 @@ function renderPhotoPreviews(){
     } else {
       item.innerHTML = '<img src="'+url+'" alt="사진" style="-webkit-touch-callout:none;user-select:none;pointer-events:none">';
     }
-    var removeBtn = document.createElement('button');
-    removeBtn.className = 'photo-remove-btn';
-    removeBtn.innerHTML = '✕';
-    removeBtn.onclick = (function(i){ return function(){ removeFile(i); }; })(idx);
-    item.appendChild(removeBtn);
+
+    if(g_shareMode){
+      // 공유 선택 모드: 원형 선택 표시 (기본 전체 선택)
+      var isSelected = g_shareSelected.has(idx);
+      var circle = document.createElement('div');
+      circle.style.cssText = 'position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;'
+        +'display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:13px;font-weight:700;'
+        +(isSelected
+          ? 'background:var(--accent);color:#091510;'
+          : 'background:rgba(0,0,0,.35);color:transparent;border:2px solid rgba(255,255,255,.8);');
+      circle.innerHTML = isSelected ? '✓' : '';
+      item.appendChild(circle);
+      item.onclick = (function(i){ return function(){
+        if(g_shareSelected.has(i)) g_shareSelected.delete(i);
+        else g_shareSelected.add(i);
+        renderPhotoPreviews();
+      }; })(idx);
+    } else {
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'photo-remove-btn';
+      removeBtn.innerHTML = '✕';
+      removeBtn.onclick = (function(i){ return function(){ removeFile(i); }; })(idx);
+      item.appendChild(removeBtn);
+    }
+
     container.appendChild(item);
   });
 
-  if(addRow) addRow.style.display = selectedFiles.length < 5 ? 'flex' : 'none';
+  if(g_shareMode){
+    updateShareSelCount();
+    if(addRow) addRow.style.display = 'none';
+  } else {
+    if(addRow) addRow.style.display = selectedFiles.length < 5 ? 'flex' : 'none';
+  }
 }
 
-async function shareMedia(){
+function updateShareSelCount(){
+  var el = document.getElementById('shareSelCount');
+  if(el) el.textContent = g_shareSelected.size + '장 선택';
+}
+
+function enterShareMode(){
   if(!selectedFiles.length){
     showCertStatus('err','📸 공유할 사진을 먼저 등록해 주세요.');
     document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
     return;
   }
+  g_shareMode = true;
+  g_shareSelected = new Set(selectedFiles.map(function(_,i){ return i; })); // 기본 전체 선택
+  document.getElementById('photoLabelNormal').style.display = 'none';
+  document.getElementById('photoShareBar').style.display = 'flex';
+  renderPhotoPreviews();
+}
+
+function cancelShareMode(){
+  g_shareMode = false;
+  g_shareSelected = new Set();
+  document.getElementById('photoLabelNormal').style.display = '';
+  document.getElementById('photoShareBar').style.display = 'none';
+  renderPhotoPreviews();
+}
+
+function toggleSelectAll(){
+  if(g_shareSelected.size === selectedFiles.length){
+    g_shareSelected = new Set(); // 전체 해제
+  } else {
+    g_shareSelected = new Set(selectedFiles.map(function(_,i){ return i; })); // 전체 선택
+  }
+  renderPhotoPreviews();
+}
+
+async function confirmShareSelection(){
+  if(!g_shareSelected.size){
+    alert('선택된 사진이 없습니다.');
+    return;
+  }
+  var targetFiles = selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); });
+  cancelShareMode(); // 선택 모드 종료 후 공유 실행
+  await shareMedia(targetFiles);
+}
+
+async function shareMedia(targetFiles){
+  var files = targetFiles || selectedFiles;
+  if(!files.length){
+    showCertStatus('err','📸 공유할 사진을 먼저 등록해 주세요.');
+    document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
+    return;
+  }
   if(!navigator.share){
-    downloadMediaFiles();
+    downloadMediaFiles(files);
     return;
   }
   try {
     // IndexedDB Blob → File 변환 (canShare는 File 타입 요구)
-    var shareFiles = selectedFiles.map(function(f, i){
+    var shareFiles = files.map(function(f, i){
       if(f instanceof File) return f;
       var ext = (f.type && f.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
       return new File([f], 'PIO_'+(i+1)+'.'+ext, {type: f.type || 'image/jpeg'});
@@ -1392,13 +1473,14 @@ async function shareMedia(){
     }
   } catch(e){
     if(e.name === 'AbortError') return;
-    downloadMediaFiles();
+    downloadMediaFiles(files);
   }
 }
 
-function downloadMediaFiles(){
-  if(!selectedFiles.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
-  selectedFiles.forEach(function(file, i){
+function downloadMediaFiles(targetFiles){
+  var files = targetFiles || selectedFiles;
+  if(!files.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
+  files.forEach(function(file, i){
     var url = URL.createObjectURL(file);
     var a   = document.createElement('a');
     a.href  = url;
@@ -1480,6 +1562,7 @@ async function saveSessionPhotos(){
 // 특정 날짜 사진을 DB에서 불러와 selectedFiles에 반영
 async function loadPhotosForDate(){
   // cert form = IndexedDB 단일 소스 (Drive 복원은 앱 시작 시 1회만 수행)
+  if(g_shareMode) cancelShareMode(); // 날짜 변경 시 선택모드 해제
   selectedFiles = [];
   renderPhotoPreviews();
 
