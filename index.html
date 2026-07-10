@@ -334,10 +334,6 @@
           <div id="photoShareBar" style="display:none;align-items:center;justify-content:space-between;gap:8px">
             <button onclick="toggleSelectAll()" style="background:none;border:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;padding:4px 0">전체 선택</button>
             <span id="shareSelCount" style="color:var(--muted);font-size:12px">0장 선택</span>
-            <div style="display:flex;gap:8px">
-              <button onclick="confirmShareSelection()" style="background:var(--accent);color:#091510;border:none;border-radius:14px;padding:6px 16px;font-size:13px;font-weight:700;cursor:pointer">공유</button>
-              <button onclick="cancelShareMode()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:14px;padding:6px 14px;font-size:13px;cursor:pointer">취소</button>
-            </div>
           </div>
           <div class="photo-previews" id="photoPreviews"></div>
           <div class="photo-add-row" id="photoAddRow">
@@ -353,6 +349,14 @@
           <button class="share-btn" id="shareBtn" onclick="enterShareMode()">
             <span>📤</span> 공유하기
           </button>
+          <div id="shareModeBtns" style="display:none;gap:8px">
+            <button onclick="cancelShareMode()" style="flex:1;width:auto;padding:13px;border-radius:14px;border:1px solid var(--border);background:none;color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:15px;font-weight:700;cursor:pointer">
+              취소
+            </button>
+            <button onclick="confirmShareSelection()" style="flex:1;width:auto;padding:13px;border-radius:14px;border:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:15px;font-weight:700;background:linear-gradient(135deg,var(--accent),#00b8ff);color:#091510;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span>📤</span> 공유
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1417,6 +1421,8 @@ function enterShareMode(){
   g_shareSelected = new Set(selectedFiles.map(function(_,i){ return i; })); // 기본 전체 선택
   document.getElementById('photoLabelNormal').style.display = 'none';
   document.getElementById('photoShareBar').style.display = 'flex';
+  document.getElementById('shareBtn').style.display = 'none';
+  document.getElementById('shareModeBtns').style.display = 'flex';
   renderPhotoPreviews();
 }
 
@@ -1425,6 +1431,8 @@ function cancelShareMode(){
   g_shareSelected = new Set();
   document.getElementById('photoLabelNormal').style.display = '';
   document.getElementById('photoShareBar').style.display = 'none';
+  document.getElementById('shareBtn').style.display = 'flex';
+  document.getElementById('shareModeBtns').style.display = 'none';
   renderPhotoPreviews();
 }
 
@@ -1437,12 +1445,51 @@ function toggleSelectAll(){
   renderPhotoPreviews();
 }
 
+// 공유 시 클립보드에 짝꿍 태그 문구 복사
+async function copyShareCaption(){
+  var target = g_partnerName || g_myName || '';
+  var text = target ? ('@'+target) : '';
+  if(!text) return;
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error('clipboard API 없음');
+    }
+    dbg('✅ 클립보드 복사 성공: '+text,'ok');
+    showDriveStatus('📋 "'+text+'" 클립보드에 복사됨', 3000);
+  }catch(e){
+    dbg('클립보드 API 실패, 폴백 시도: '+e.message,'warn');
+    // 폴백: 임시 textarea + execCommand
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok){
+        dbg('✅ 폴백 클립보드 복사 성공','ok');
+        showDriveStatus('📋 "'+text+'" 클립보드에 복사됨', 3000);
+      } else {
+        throw new Error('execCommand 실패');
+      }
+    }catch(e2){
+      dbg('❌ 클립보드 복사 완전 실패: '+e2.message,'err');
+      showDriveStatus('⚠️ 클립보드 복사 실패 - 직접 입력해주세요: '+text, 4000);
+    }
+  }
+}
+
 async function confirmShareSelection(){
   if(!g_shareSelected.size){
     alert('선택된 사진이 없습니다.');
     return;
   }
   var targetFiles = selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); });
+  await copyShareCaption(); // 공유 전 클립보드에 문구 복사
   cancelShareMode(); // 선택 모드 종료 후 공유 실행
   await shareMedia(targetFiles);
 }
