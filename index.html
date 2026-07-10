@@ -1388,19 +1388,29 @@ async function shareMedia(){
     document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
     return;
   }
+  dbg('shareMedia: navigator.share='+(!!navigator.share)+' canShare='+(!!navigator.canShare),'ok');
   if(!navigator.share){
+    dbg('❌ navigator.share 미지원 → 다운로드 폴백','err');
     downloadMediaFiles();
     return;
   }
   try {
     var shareData = { files: selectedFiles.slice(), title: 'PIO 3기 챌린지 운동 인증' };
-    if(navigator.canShare && navigator.canShare(shareData)){
+    var canShareFiles = navigator.canShare && navigator.canShare(shareData);
+    dbg('canShare(files)='+canShareFiles+' 파일수='+selectedFiles.length+
+        ' 타입=['+selectedFiles.map(function(f){return f.type;}).join(',')+']'+
+        ' 크기=['+selectedFiles.map(function(f){return (f.size/1024).toFixed(0)+'KB';}).join(',')+']','warn');
+    if(canShareFiles){
+      dbg('navigator.share(files) 호출','ok');
       await navigator.share(shareData);
+      dbg('✅ 공유 성공','ok');
     } else {
+      dbg('⚠️ canShare(files)=false → 텍스트만 공유','warn');
       await navigator.share({ title:'PIO 3기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
     }
   } catch(e){
-    if(e.name === 'AbortError') return;
+    dbg('❌ share 오류: '+e.name+' - '+e.message,'err');
+    if(e.name === 'AbortError'){ dbg('사용자 취소','warn'); return; }
     downloadMediaFiles();
   }
 }
