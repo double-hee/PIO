@@ -1184,6 +1184,7 @@ async function searchPersonal(){
 
 /* ── 사진/동영상 등록 ── */
 var selectedFiles = []; // 선택된 파일 배열 (최대 2개)
+var g_shareSelected = new Set(); // 공유할 사진 인덱스 (비어있으면 전체 공유)
 
 
 
@@ -1208,6 +1209,7 @@ function triggerFileInput(type){
 }
 
 function onFilesSelected(files){
+  g_shareSelected.clear(); // 선택 초기화
   var remaining = 5 - selectedFiles.length;
   var added = 0;
   for(var i=0; i<files.length && added<remaining; i++){
@@ -1395,8 +1397,13 @@ async function shareMedia(){
     return;
   }
   try {
+    // 선택된 사진만 (g_shareSelected 비어있으면 전체)
+    var targetFiles = g_shareSelected.size>0
+      ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
+      : selectedFiles;
+    dbg('공유 대상: '+targetFiles.length+'/'+selectedFiles.length+'장','ok');
     // IndexedDB에서 로드된 파일은 Blob이라 File로 변환 (canShare는 File만 허용)
-    var shareFiles = selectedFiles.map(function(f, i){
+    var shareFiles = targetFiles.map(function(f, i){
       if(f instanceof File) return f;
       var ext = (f.type && f.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
       return new File([f], 'PIO_'+(i+1)+'.'+ext, {type: f.type || 'image/jpeg'});
@@ -1423,7 +1430,10 @@ async function shareMedia(){
 
 function downloadMediaFiles(){
   if(!selectedFiles.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
-  selectedFiles.forEach(function(file, i){
+  var targetFiles = g_shareSelected.size>0
+    ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
+    : selectedFiles;
+  targetFiles.forEach(function(file, i){
     var url = URL.createObjectURL(file);
     var a   = document.createElement('a');
     a.href  = url;
@@ -1462,6 +1472,8 @@ function renderPhotoPreviews(){
     return;
   }
 
+  // 사진 2장 이상일 때만 개별 선택 체크박스 표시
+  var showCheckbox = selectedFiles.length > 1;
   selectedFiles.forEach(function(file, idx){
     var item = document.createElement('div');
     item.className = 'photo-preview-item';
@@ -1478,6 +1490,30 @@ function renderPhotoPreviews(){
     removeBtn.innerHTML = '✕';
     removeBtn.onclick = (function(i){ return function(){ removeFile(i); }; })(idx);
     item.appendChild(removeBtn);
+
+    if(showCheckbox){
+      var isChecked = g_shareSelected.size===0 || g_shareSelected.has(idx);
+      var check = document.createElement('div');
+      check.className = 'photo-share-check';
+      check.innerHTML = isChecked ? '✅' : '⬜';
+      check.style.cssText = 'position:absolute;top:6px;left:6px;font-size:18px;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))';
+      check.onclick = (function(i){ return function(e){
+        e.stopPropagation();
+        if(g_shareSelected.size===0){
+          // 전체선택 상태에서 하나 클릭 → 그것만 해제하고 나머지 선택
+          selectedFiles.forEach(function(_,j){ if(j!==i) g_shareSelected.add(j); });
+        } else if(g_shareSelected.has(i)){
+          g_shareSelected.delete(i);
+        } else {
+          g_shareSelected.add(i);
+        }
+        // 전부 선택됐으면 다시 '전체(빈 셋)' 상태로
+        if(g_shareSelected.size===selectedFiles.length) g_shareSelected.clear();
+        renderPhotoPreviews();
+      };})(idx);
+      item.appendChild(check);
+    }
+
     container.appendChild(item);
   });
 
@@ -1486,6 +1522,7 @@ function renderPhotoPreviews(){
 
 // IndexedDB 기반 사진 삭제 (X 버튼)
 async function removeFile(idx){
+  g_shareSelected.clear(); // 인덱스 변경되므로 선택 초기화
   var key = getCurrentPhotoKey();
   var driveId = null;
   var entries = getDriveEntries(key);
