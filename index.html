@@ -1385,23 +1385,42 @@ function getCurrentPhotoKey(){
 }
 
 async function shareMedia(){
-  if(!selectedFiles.length){
+  var key = getCurrentPhotoKey();
+  var isDriveOnly = !selectedFiles.length && key && g_sessionPhotos[key] && g_sessionPhotos[key].length;
+
+  if(!selectedFiles.length && !isDriveOnly){
     showCertStatus('err','📸 공유할 사진을 먼저 등록해 주세요.');
     document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
     return;
   }
-  dbg('shareMedia: navigator.share='+(!!navigator.share)+' canShare='+(!!navigator.canShare),'ok');
+  dbg('shareMedia: navigator.share='+(!!navigator.share)+' canShare='+(!!navigator.canShare)+
+      ' Drive전용='+isDriveOnly,'ok');
   if(!navigator.share){
     dbg('❌ navigator.share 미지원 → 다운로드 폴백','err');
+    if(isDriveOnly){ alert('사진을 길게 눌러 저장해 주세요.'); return; }
     downloadMediaFiles();
     return;
   }
   try {
-    // 선택된 사진만 (g_shareSelected 비어있으면 전체)
-    var targetFiles = g_shareSelected.size>0
-      ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
-      : selectedFiles;
-    dbg('공유 대상: '+targetFiles.length+'/'+selectedFiles.length+'장','ok');
+    var targetFiles;
+    if(isDriveOnly){
+      // Drive URL 사진을 fetch로 받아와 File로 변환
+      dbg('Drive URL → Blob 변환 중...','warn');
+      var driveUrls = g_shareSelected.size>0
+        ? g_sessionPhotos[key].filter(function(_,i){ return g_shareSelected.has(i); })
+        : g_sessionPhotos[key];
+      var blobResults = await Promise.all(driveUrls.map(function(u){
+        return fetch(u).then(function(r){ return r.blob(); }).catch(function(){ return null; });
+      }));
+      targetFiles = blobResults.filter(Boolean);
+      dbg('Drive 사진 '+targetFiles.length+'장 변환 완료','ok');
+    } else {
+      // 선택된 사진만 (g_shareSelected 비어있으면 전체)
+      targetFiles = g_shareSelected.size>0
+        ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
+        : selectedFiles;
+    }
+    dbg('공유 대상: '+targetFiles.length+'장','ok');
     // IndexedDB에서 로드된 파일은 Blob이라 File로 변환 (canShare는 File만 허용)
     var shareFiles = targetFiles.map(function(f, i){
       if(f instanceof File) return f;
@@ -1428,11 +1447,25 @@ async function shareMedia(){
   }
 }
 
-function downloadMediaFiles(){
-  if(!selectedFiles.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
-  var targetFiles = g_shareSelected.size>0
-    ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
-    : selectedFiles;
+async function downloadMediaFiles(){
+  var key = getCurrentPhotoKey();
+  var isDriveOnly = !selectedFiles.length && key && g_sessionPhotos[key] && g_sessionPhotos[key].length;
+  if(!selectedFiles.length && !isDriveOnly){ alert('등록된 사진/동영상이 없습니다.'); return; }
+
+  var targetFiles;
+  if(isDriveOnly){
+    var driveUrls = g_shareSelected.size>0
+      ? g_sessionPhotos[key].filter(function(_,i){ return g_shareSelected.has(i); })
+      : g_sessionPhotos[key];
+    var blobs = await Promise.all(driveUrls.map(function(u){
+      return fetch(u).then(function(r){return r.blob();}).catch(function(){return null;});
+    }));
+    targetFiles = blobs.filter(Boolean);
+  } else {
+    targetFiles = g_shareSelected.size>0
+      ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
+      : selectedFiles;
+  }
   targetFiles.forEach(function(file, i){
     var url = URL.createObjectURL(file);
     var a   = document.createElement('a');
@@ -1672,7 +1705,28 @@ async function loadPhotosForDate(){
     var driveItems = g_drivePhotoKeys[kn][kd];
     var driveUrls = driveItems.map(function(e){return typeof e==='object'?e.url:e;});
     g_sessionPhotos[key] = driveUrls;
-    dbg('loadPhotosForDate: Drive '+driveUrls.length+'장','ok');
+    dbg('loadPhotosForDate: Drive(캐시) '+driveUrls.length+'장','ok');
+    renderPhotoPreviews();
+    return;
+  }
+  // 3차: Drive API 직접 조회 (이 날짜만, startup restore가 스킵된 경우 대비)
+  if(DRIVE_SCRIPT_URL && kn && kd){
+    try{
+      var res = await fetch(DRIVE_SCRIPT_URL,{
+        method:'POST', body:JSON.stringify({action:'list', name:kn, date:kd})
+      });
+      var j = await res.json();
+      if(j.success && j.photos && j.photos[kd] && j.photos[kd].length){
+        var items3 = j.photos[kd];
+        var urls3 = items3.map(function(e){return typeof e==='object'?e.url:e;});
+        g_sessionPhotos[key] = urls3;
+        if(!g_drivePhotoKeys[kn]) g_drivePhotoKeys[kn]={};
+        g_drivePhotoKeys[kn][kd] = items3;
+        dbg('loadPhotosForDate: Drive(API) '+urls3.length+'장','ok');
+      } else {
+        dbg('loadPhotosForDate: 사진 없음 (key='+key+')','warn');
+      }
+    }catch(e){ dbg('loadPhotosForDate Drive API 오류: '+e.message,'err'); }
   } else {
     dbg('loadPhotosForDate: 사진 없음 (key='+key+')','warn');
   }
