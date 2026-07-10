@@ -1382,6 +1382,46 @@ function getCurrentPhotoKey(){
   return name+'_'+parseInt(p[0])+'/'+parseInt(p[1])+'/'+parseInt(p[2]);
 }
 
+async function shareMedia(){
+  if(!selectedFiles.length){
+    showCertStatus('err','📸 공유할 사진을 먼저 등록해 주세요.');
+    document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
+    return;
+  }
+  if(!navigator.share){
+    downloadMediaFiles();
+    return;
+  }
+  try {
+    var shareData = { files: selectedFiles.slice(), title: 'PIO 3기 챌린지 운동 인증' };
+    if(navigator.canShare && navigator.canShare(shareData)){
+      await navigator.share(shareData);
+    } else {
+      await navigator.share({ title:'PIO 3기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
+    }
+  } catch(e){
+    if(e.name === 'AbortError') return;
+    downloadMediaFiles();
+  }
+}
+
+function downloadMediaFiles(){
+  if(!selectedFiles.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
+  selectedFiles.forEach(function(file, i){
+    var url = URL.createObjectURL(file);
+    var a   = document.createElement('a');
+    a.href  = url;
+    a.download = file.name || ('PIO운동인증_'+(i+1));
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  });
+  setTimeout(function(){
+    alert('📥 파일이 다운로드됐습니다.\n갤러리 앱에서 열어 공유해 주세요!');
+  }, 500);
+}
+
 function renderPhotoPreviews(){
   var container = document.getElementById('photoPreviews');
   var addRow    = document.getElementById('photoAddRow');
