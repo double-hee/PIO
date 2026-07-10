@@ -491,12 +491,39 @@ function initPhotoDB(){
 }
 
 function savePhotoDB(key, files){
-  if(!g_photoDB || !files.length) return;
-  try {
-    var blobs = files.map(function(f){ return f.slice(0, f.size, f.type); });
-    var tx = g_photoDB.transaction('photos','readwrite');
-    tx.objectStore('photos').put(blobs, key);
-  } catch(e){}
+  return new Promise(function(resolve){
+    if(!g_photoDB || !files.length){ resolve(); return; }
+    try {
+      var blobs = files.map(function(f){ return f.slice(0, f.size, f.type); });
+      var tx = g_photoDB.transaction('photos','readwrite');
+      tx.objectStore('photos').put(blobs, key);
+      tx.oncomplete = function(){ resolve(); };
+      tx.onerror = function(){ resolve(); };
+    } catch(e){ resolve(); }
+  });
+}
+
+// IndexedDB에 이 사용자의 사진이 하나라도 있는지 확인 (전체 스캔)
+function hasAnyPhotoInIndexedDB(name){
+  return new Promise(function(resolve){
+    if(!g_photoDB){ resolve(false); return; }
+    try {
+      var tx = g_photoDB.transaction('photos','readonly');
+      var req = tx.objectStore('photos').openCursor();
+      req.onsuccess = function(e){
+        var cursor = e.target.result;
+        if(cursor){
+          if(cursor.key.indexOf(name+'_')===0 && cursor.value && cursor.value.length>0){
+            resolve(true); return;
+          }
+          cursor.continue();
+        } else {
+          resolve(false);
+        }
+      };
+      req.onerror = function(){ resolve(false); };
+    } catch(e){ resolve(false); }
+  });
 }
 
 function loadPhotoDB(key){
@@ -525,45 +552,23 @@ function deletePhotoDB(key){
 
 function getPhotoKeysForUser(name){
   return new Promise(function(resolve){
-    function addDriveMetaKeys(keys){
-      // localStorage Drive 메타 (빈 배열 제외)
-      var meta = getDriveMeta();
-      var added=[];
-      Object.keys(meta).forEach(function(k){
-        if(k.indexOf(name+'_')===0 && meta[k] && meta[k].length > 0){
-          keys.add(k);
-          added.push(k.replace(name+'_','')+':'+meta[k].length+'장');
-        }
-      });
-      if(added.length) dbg('Drive메타 키: '+added.join(', '),'ok');
-      // g_drivePhotoKeys 미사용 - localStorage 메타가 삭제 반영으로 더 정확
-    }
-    if(!g_photoDB){
-      var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); return;
-    }
+    if(!g_photoDB){ resolve(new Set()); return; }
     try {
       var tx = g_photoDB.transaction('photos','readonly');
-      // getAllKeys 대신 커서로 실제 blob 있는 키만 수집
       var keys = new Set();
       var req = tx.objectStore('photos').openCursor();
-      var idbKeys=[];
       req.onsuccess = function(e){
         var cursor = e.target.result;
         if(cursor){
-          var k = cursor.key;
-          if(k.indexOf(name+'_')===0 && cursor.value && cursor.value.length > 0){
-            keys.add(k);
-            idbKeys.push(k.replace(name+'_','')+':'+cursor.value.length+'장');
-          }
+          if(cursor.key.indexOf(name+'_')===0 && cursor.value && cursor.value.length>0)
+            keys.add(cursor.key);
           cursor.continue();
         } else {
-          if(idbKeys.length) dbg('IndexedDB 키: '+idbKeys.join(', '),'ok');
-          addDriveMetaKeys(keys);
           resolve(keys);
         }
       };
-      req.onerror = function(){ var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); };
-    } catch(e){ var keys=new Set(); addDriveMetaKeys(keys); resolve(keys); }
+      req.onerror = function(){ resolve(new Set()); };
+    } catch(e){ resolve(new Set()); }
   });
 }
 
@@ -683,12 +688,8 @@ document.getElementById('certDate').addEventListener('change', function(){
 document.getElementById('certName').addEventListener('change',function(){
   var nv=this.value.trim();
   localStorage.setItem('pio_name',nv);
-  updatePhotoSectionVisibility(); // 내 이름일 때만 사진 섹션 표시 (요건3)
-  if(nv && DRIVE_SCRIPT_URL){
-    loadPhotosFromDrive(nv).then(function(){ loadPhotosForDate(); });
-  } else {
-    loadPhotosForDate();
-  }
+  updatePhotoSectionVisibility(); // 내 이름일 때만 사진 섹션 표시
+  loadPhotosForDate(); // IndexedDB에서 즉시 로드
   // 참여인원 아닐 시 경고
   if(nv && allParticipants.length>0){
     var found=allParticipants.some(function(p){return p.name===nv;});
@@ -1184,7 +1185,6 @@ async function searchPersonal(){
 
 /* ── 사진/동영상 등록 ── */
 var selectedFiles = []; // 선택된 파일 배열 (최대 2개)
-var g_shareSelected = new Set(); // 공유할 사진 인덱스 (비어있으면 전체 공유)
 
 
 
@@ -1209,7 +1209,6 @@ function triggerFileInput(type){
 }
 
 function onFilesSelected(files){
-  g_shareSelected.clear(); // 선택 초기화
   var remaining = 5 - selectedFiles.length;
   var added = 0;
   for(var i=0; i<files.length && added<remaining; i++){
@@ -1332,50 +1331,6 @@ function toLh3Url(url){
 }
 
 // getDriveUrls: 위에서 정의됨
-
-// Drive에서 이름별 사진 목록 복원
-async function loadPhotosFromDrive(name){
-  if(!DRIVE_SCRIPT_URL || !name) return;
-  try {
-    showDriveStatus('📡 Drive 사진 불러오는 중...');
-    var res = await fetch(DRIVE_SCRIPT_URL, {
-      method:'POST',
-      body: JSON.stringify({action:'list', name:name})
-    });
-    var json = await res.json();
-    if(!json.success || !json.photos){
-      showDriveStatus('⚠️ Drive 응답 없음', 3000); return;
-    }
-    // g_drivePhotoKeys에 이름별로 저장 (개인조회 전용, cert form 오염 방지)
-    // 날짜 키 정규화 (Date 객체 → 2026/7/8 형식)
-    var normalized = {};
-    Object.keys(json.photos).forEach(function(date){
-      var nd = normDateStr(date);
-      if(!normalized[nd]) normalized[nd] = [];
-      (json.photos[date]||[]).forEach(function(item){
-        var id  = typeof item==='object' ? item.driveId : (extractDriveId(item)||'');
-        var url = typeof item==='object' ? item.url     : item;
-        if(!normalized[nd].some(function(e){return e.driveId===id;}))
-          normalized[nd].push({driveId:id, url:url});
-      });
-    });
-    g_drivePhotoKeys[name] = normalized;
-    // 기존 이 사용자의 Drive 메타 전체 제거 (잘못된 날짜 키 정리)
-    var meta = getDriveMeta();
-    Object.keys(meta).forEach(function(k){
-      if(k.indexOf(name+'_')===0) delete meta[k];
-    });
-    // 정규화된 데이터로 새로 저장
-    Object.keys(normalized).forEach(function(date){
-      var key = name+'_'+date;
-      meta[key] = normalized[date];
-    });
-    saveDriveMeta(meta);
-    showDriveStatus('✅ '+Object.keys(normalized).length+'개 날짜 복원 완료', 3000);
-    console.log('[PIO] Drive 사진 복원:', name, Object.keys(json.photos).length+'개 날짜');
-  } catch(e){ console.warn('[PIO] Drive 복원 실패:', e); }
-}
-
 function getCurrentPhotoKey(){
   var name    = (document.getElementById('certName').value||'').trim();
   var dateVal = document.getElementById('certDate').value;
@@ -1384,129 +1339,12 @@ function getCurrentPhotoKey(){
   return name+'_'+parseInt(p[0])+'/'+parseInt(p[1])+'/'+parseInt(p[2]);
 }
 
-async function shareMedia(){
-  var key = getCurrentPhotoKey();
-  var isDriveOnly = !selectedFiles.length && key && g_sessionPhotos[key] && g_sessionPhotos[key].length;
-
-  if(!selectedFiles.length && !isDriveOnly){
-    showCertStatus('err','📸 공유할 사진을 먼저 등록해 주세요.');
-    document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
-    return;
-  }
-  dbg('shareMedia: navigator.share='+(!!navigator.share)+' canShare='+(!!navigator.canShare)+
-      ' Drive전용='+isDriveOnly,'ok');
-  if(!navigator.share){
-    dbg('❌ navigator.share 미지원 → 다운로드 폴백','err');
-    if(isDriveOnly){ alert('사진을 길게 눌러 저장해 주세요.'); return; }
-    downloadMediaFiles();
-    return;
-  }
-  try {
-    var targetFiles;
-    if(isDriveOnly){
-      // Drive URL 사진을 fetch로 받아와 File로 변환
-      dbg('Drive URL → Blob 변환 중...','warn');
-      var driveUrls = g_shareSelected.size>0
-        ? g_sessionPhotos[key].filter(function(_,i){ return g_shareSelected.has(i); })
-        : g_sessionPhotos[key];
-      var blobResults = await Promise.all(driveUrls.map(function(u){
-        return fetch(u).then(function(r){ return r.blob(); }).catch(function(){ return null; });
-      }));
-      targetFiles = blobResults.filter(Boolean);
-      dbg('Drive 사진 '+targetFiles.length+'장 변환 완료','ok');
-    } else {
-      // 선택된 사진만 (g_shareSelected 비어있으면 전체)
-      targetFiles = g_shareSelected.size>0
-        ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
-        : selectedFiles;
-    }
-    dbg('공유 대상: '+targetFiles.length+'장','ok');
-    // IndexedDB에서 로드된 파일은 Blob이라 File로 변환 (canShare는 File만 허용)
-    var shareFiles = targetFiles.map(function(f, i){
-      if(f instanceof File) return f;
-      var ext = (f.type && f.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
-      return new File([f], 'PIO_'+(i+1)+'.'+ext, {type: f.type || 'image/jpeg'});
-    });
-    var shareData = { files: shareFiles, title: 'PIO 3기 챌린지 운동 인증' };
-    var canShareFiles = navigator.canShare && navigator.canShare(shareData);
-    dbg('canShare(files)='+canShareFiles+' 파일수='+selectedFiles.length+
-        ' 타입=['+selectedFiles.map(function(f){return f.type;}).join(',')+']'+
-        ' 크기=['+selectedFiles.map(function(f){return (f.size/1024).toFixed(0)+'KB';}).join(',')+']','warn');
-    if(canShareFiles){
-      dbg('navigator.share(files) 호출','ok');
-      await navigator.share(shareData);
-      dbg('✅ 공유 성공','ok');
-    } else {
-      dbg('⚠️ canShare(files)=false → 텍스트만 공유','warn');
-      await navigator.share({ title:'PIO 3기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
-    }
-  } catch(e){
-    dbg('❌ share 오류: '+e.name+' - '+e.message,'err');
-    if(e.name === 'AbortError'){ dbg('사용자 취소','warn'); return; }
-    downloadMediaFiles();
-  }
-}
-
-async function downloadMediaFiles(){
-  var key = getCurrentPhotoKey();
-  var isDriveOnly = !selectedFiles.length && key && g_sessionPhotos[key] && g_sessionPhotos[key].length;
-  if(!selectedFiles.length && !isDriveOnly){ alert('등록된 사진/동영상이 없습니다.'); return; }
-
-  var targetFiles;
-  if(isDriveOnly){
-    var driveUrls = g_shareSelected.size>0
-      ? g_sessionPhotos[key].filter(function(_,i){ return g_shareSelected.has(i); })
-      : g_sessionPhotos[key];
-    var blobs = await Promise.all(driveUrls.map(function(u){
-      return fetch(u).then(function(r){return r.blob();}).catch(function(){return null;});
-    }));
-    targetFiles = blobs.filter(Boolean);
-  } else {
-    targetFiles = g_shareSelected.size>0
-      ? selectedFiles.filter(function(_,i){ return g_shareSelected.has(i); })
-      : selectedFiles;
-  }
-  targetFiles.forEach(function(file, i){
-    var url = URL.createObjectURL(file);
-    var a   = document.createElement('a');
-    a.href  = url;
-    a.download = file.name || ('PIO운동인증_'+(i+1));
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  });
-  setTimeout(function(){
-    alert('📥 파일이 다운로드됐습니다.\n갤러리 앱에서 열어 공유해 주세요!');
-  }, 500);
-}
-
 function renderPhotoPreviews(){
   var container = document.getElementById('photoPreviews');
   var addRow    = document.getElementById('photoAddRow');
   if(!container) return;
   container.innerHTML = '';
 
-  // Drive URL 기반 표시 (IndexedDB 없을 때 g_sessionPhotos로 표시)
-  var key = getCurrentPhotoKey();
-  if(!selectedFiles.length && key && g_sessionPhotos[key] && g_sessionPhotos[key].length){
-    g_sessionPhotos[key].forEach(function(url, idx){
-      var item = document.createElement('div');
-      item.className = 'photo-preview-item';
-      item.innerHTML = '<img src="'+url+'" style="width:100%;height:100%;object-fit:cover;-webkit-touch-callout:none;user-select:none;pointer-events:none">';
-      var btn = document.createElement('button');
-      btn.className = 'photo-remove-btn';
-      btn.innerHTML = '✕';
-      btn.onclick = (function(i){ return function(){ removeDrivePhoto(i); }; })(idx);
-      item.appendChild(btn);
-      container.appendChild(item);
-    });
-    if(addRow) addRow.style.display = selectedFiles.length < 5 ? 'flex' : 'none';
-    return;
-  }
-
-  // 사진 2장 이상일 때만 개별 선택 체크박스 표시
-  var showCheckbox = selectedFiles.length > 1;
   selectedFiles.forEach(function(file, idx){
     var item = document.createElement('div');
     item.className = 'photo-preview-item';
@@ -1523,72 +1361,85 @@ function renderPhotoPreviews(){
     removeBtn.innerHTML = '✕';
     removeBtn.onclick = (function(i){ return function(){ removeFile(i); }; })(idx);
     item.appendChild(removeBtn);
-
-    if(showCheckbox){
-      var isChecked = g_shareSelected.size===0 || g_shareSelected.has(idx);
-      var check = document.createElement('div');
-      check.className = 'photo-share-check';
-      check.innerHTML = isChecked ? '✅' : '⬜';
-      check.style.cssText = 'position:absolute;top:6px;left:6px;font-size:18px;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))';
-      check.onclick = (function(i){ return function(e){
-        e.stopPropagation();
-        if(g_shareSelected.size===0){
-          // 전체선택 상태에서 하나 클릭 → 그것만 해제하고 나머지 선택
-          selectedFiles.forEach(function(_,j){ if(j!==i) g_shareSelected.add(j); });
-        } else if(g_shareSelected.has(i)){
-          g_shareSelected.delete(i);
-        } else {
-          g_shareSelected.add(i);
-        }
-        // 전부 선택됐으면 다시 '전체(빈 셋)' 상태로
-        if(g_shareSelected.size===selectedFiles.length) g_shareSelected.clear();
-        renderPhotoPreviews();
-      };})(idx);
-      item.appendChild(check);
-    }
-
     container.appendChild(item);
   });
 
   if(addRow) addRow.style.display = selectedFiles.length < 5 ? 'flex' : 'none';
 }
 
+async function shareMedia(){
+  if(!selectedFiles.length){
+    showCertStatus('err','📸 공유할 사진을 먼저 등록해 주세요.');
+    document.getElementById('certStatus').scrollIntoView({behavior:'smooth',block:'nearest'});
+    return;
+  }
+  if(!navigator.share){
+    downloadMediaFiles();
+    return;
+  }
+  try {
+    // IndexedDB Blob → File 변환 (canShare는 File 타입 요구)
+    var shareFiles = selectedFiles.map(function(f, i){
+      if(f instanceof File) return f;
+      var ext = (f.type && f.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
+      return new File([f], 'PIO_'+(i+1)+'.'+ext, {type: f.type || 'image/jpeg'});
+    });
+    var shareData = { files: shareFiles, title: 'PIO 3기 챌린지 운동 인증' };
+    if(navigator.canShare && navigator.canShare(shareData)){
+      await navigator.share(shareData);
+    } else {
+      await navigator.share({ title:'PIO 3기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
+    }
+  } catch(e){
+    if(e.name === 'AbortError') return;
+    downloadMediaFiles();
+  }
+}
+
+function downloadMediaFiles(){
+  if(!selectedFiles.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
+  selectedFiles.forEach(function(file, i){
+    var url = URL.createObjectURL(file);
+    var a   = document.createElement('a');
+    a.href  = url;
+    a.download = file.name || ('PIO운동인증_'+(i+1));
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  });
+  setTimeout(function(){
+    alert('📥 파일이 다운로드됐습니다.\n갤러리 앱에서 열어 공유해 주세요!');
+  }, 500);
+}
+
 // IndexedDB 기반 사진 삭제 (X 버튼)
 async function removeFile(idx){
-  g_shareSelected.clear(); // 인덱스 변경되므로 선택 초기화
   var key = getCurrentPhotoKey();
-  var driveId = null;
   var entries = getDriveEntries(key);
-  dbg('removeFile idx='+idx+' entries='+entries.length+' key='+key,'ok');
-  if(entries[idx]) driveId = entries[idx].driveId;
-  // g_drivePhotoKeys에서도 driveId 조회 (localStorage 메타 없을 때 대비)
-  if(!driveId){
-    var kp=key.split('_'),kn=kp[0],kd=kp.slice(1).join('_');
-    if(g_drivePhotoKeys[kn]&&g_drivePhotoKeys[kn][kd]&&g_drivePhotoKeys[kn][kd][idx]){
-      var item=g_drivePhotoKeys[kn][kd][idx];
-      driveId=typeof item==='object'?item.driveId:extractDriveId(item);
-      dbg('driveId g_drivePhotoKeys에서 획득: '+driveId,'warn');
-    }
-  }
-  dbg('driveId='+(driveId||'없음 → Drive 삭제 불가'),'warn');
+  var driveId = entries[idx] ? entries[idx].driveId : null;
 
-  // 1. selectedFiles에서 제거
+  // 1. 화면 즉시 반영
   selectedFiles.splice(idx, 1);
+  renderPhotoPreviews();
 
-  // 2. IndexedDB 업데이트 - await으로 삭제 완료 보장
-  await saveSessionPhotos();
+  // 2. IndexedDB 즉시 업데이트 (await로 완료 보장 - 복원 방지)
+  if(selectedFiles.length){
+    await savePhotoDB(key, selectedFiles);
+  } else {
+    await deletePhotoDB(key);
+  }
+  if(g_sessionPhotos[key]) delete g_sessionPhotos[key];
+  dbg('IndexedDB 삭제 반영 완료: '+key,'ok');
 
-  // 3. Drive 삭제 (비동기)
+  // 3. Drive 백그라운드 삭제
   if(driveId && DRIVE_SCRIPT_URL){
-    dbg('Drive 삭제 요청: '+driveId,'warn');
     fetch(DRIVE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'delete',fileId:driveId})})
       .then(function(r){return r.json();})
       .then(function(j){
-        if(j.success) dbg('✅ Drive 삭제 성공: '+driveId,'ok');
-        else dbg('❌ Drive 삭제 실패: '+(j.error||JSON.stringify(j)),'err');
+        dbg(j.success ? '✅ Drive 삭제 성공' : '❌ Drive 삭제 실패: '+(j.error||''), j.success?'ok':'err');
       })
       .catch(function(e){ dbg('❌ Drive 삭제 오류: '+e.message,'err'); });
-    // localStorage 메타에서 제거
     var meta=getDriveMeta();
     if(meta[key]){
       meta[key]=meta[key].filter(function(e){
@@ -1597,64 +1448,10 @@ async function removeFile(idx){
       if(!meta[key].length) delete meta[key];
       saveDriveMeta(meta);
     }
-    // g_drivePhotoKeys에서 제거
-    var kp=key.split('_'),kn=kp[0],kd=kp.slice(1).join('_');
-    if(g_drivePhotoKeys[kn]&&g_drivePhotoKeys[kn][kd]){
-      g_drivePhotoKeys[kn][kd]=g_drivePhotoKeys[kn][kd].filter(function(e){
-        return (typeof e==='object'?e.driveId:extractDriveId(e))!==driveId;
-      });
-      if(!g_drivePhotoKeys[kn][kd].length) delete g_drivePhotoKeys[kn][kd];
-    }
   }
-  // g_sessionPhotos 업데이트
-  if(g_sessionPhotos[key]) g_sessionPhotos[key].splice(idx,1);
-
-  renderPhotoPreviews();
 }
 
 // Drive URL 기반 사진 삭제 (IndexedDB 없이 Drive만 있을 때)
-async function removeDrivePhoto(idx){
-  var key = getCurrentPhotoKey();
-  if(!key) return;
-  var urls = g_sessionPhotos[key]||[];
-  if(idx >= urls.length) return;
-  var url = urls[idx];
-  var driveId = extractDriveId(url);
-  dbg('removeDrivePhoto idx='+idx+' driveId='+(driveId||'없음'),'ok');
-  // Drive 삭제
-  if(driveId && DRIVE_SCRIPT_URL){
-    dbg('Drive 삭제 요청(Drive사진): '+driveId,'warn');
-    fetch(DRIVE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'delete',fileId:driveId})})
-      .then(function(r){return r.json();})
-      .then(function(j){
-        if(j.success) dbg('✅ Drive 삭제 성공','ok');
-        else dbg('❌ Drive 삭제 실패: '+(j.error||JSON.stringify(j)),'err');
-      })
-      .catch(function(e){ dbg('❌ Drive 삭제 오류: '+e.message,'err'); });
-  } else {
-    dbg('⚠️ Drive 삭제 건너뜀 (driveId 없음)','err');
-  }
-  // 모든 캐시에서 제거
-  g_sessionPhotos[key].splice(idx,1);
-  var meta=getDriveMeta();
-  if(meta[key]){
-    meta[key]=meta[key].filter(function(e){
-      return (typeof e==='object'?e.driveId:extractDriveId(e))!==driveId;
-    });
-    if(!meta[key].length) delete meta[key];
-    saveDriveMeta(meta);
-  }
-  var kp=key.split('_'),kn=kp[0],kd=kp.slice(1).join('_');
-  if(g_drivePhotoKeys[kn]&&g_drivePhotoKeys[kn][kd]){
-    g_drivePhotoKeys[kn][kd]=g_drivePhotoKeys[kn][kd].filter(function(e){
-      return (typeof e==='object'?e.driveId:extractDriveId(e))!==driveId;
-    });
-    if(!g_drivePhotoKeys[kn][kd].length) delete g_drivePhotoKeys[kn][kd];
-  }
-  deletePhotoDB(key);
-  renderPhotoPreviews();
-}
-
 async function saveSessionPhotos(){
   var key = getCurrentPhotoKey();
   if(!key) return;
@@ -1682,118 +1479,35 @@ async function saveSessionPhotos(){
 
 // 특정 날짜 사진을 DB에서 불러와 selectedFiles에 반영
 async function loadPhotosForDate(){
-  // cert form = IndexedDB 전용 (Drive는 startup restore 때만 사용)
-  var prevKey = getCurrentPhotoKey();
+  // cert form = IndexedDB 단일 소스 (Drive 복원은 앱 시작 시 1회만 수행)
   selectedFiles = [];
-  if(prevKey) g_sessionPhotos[prevKey] = [];
   renderPhotoPreviews();
 
   var key = getCurrentPhotoKey();
   if(!key) return;
 
-  // 1차: IndexedDB
   var blobs = await loadPhotoDB(key);
   if(blobs && blobs.length){
     selectedFiles = blobs;
-    g_sessionPhotos[key] = blobs.map(function(b){ return URL.createObjectURL(b); });
-    dbg('loadPhotosForDate: IndexedDB '+blobs.length+'장','ok');
-    renderPhotoPreviews(); return;
-  }
-  // 2차: g_drivePhotoKeys (startup restore 데이터, 삭제 시 동기화됨)
-  var kp=key.split('_'), kn=kp[0], kd=kp.slice(1).join('_');
-  if(g_drivePhotoKeys[kn] && g_drivePhotoKeys[kn][kd] && g_drivePhotoKeys[kn][kd].length){
-    var driveItems = g_drivePhotoKeys[kn][kd];
-    var driveUrls = driveItems.map(function(e){return typeof e==='object'?e.url:e;});
-    g_sessionPhotos[key] = driveUrls;
-    dbg('loadPhotosForDate: Drive(캐시) '+driveUrls.length+'장','ok');
-    renderPhotoPreviews();
-    return;
-  }
-  // 3차: Drive API 직접 조회 (이 날짜만, startup restore가 스킵된 경우 대비)
-  if(DRIVE_SCRIPT_URL && kn && kd){
-    try{
-      var res = await fetch(DRIVE_SCRIPT_URL,{
-        method:'POST', body:JSON.stringify({action:'list', name:kn, date:kd})
-      });
-      var j = await res.json();
-      if(j.success && j.photos && j.photos[kd] && j.photos[kd].length){
-        var items3 = j.photos[kd];
-        var urls3 = items3.map(function(e){return typeof e==='object'?e.url:e;});
-        g_sessionPhotos[key] = urls3;
-        if(!g_drivePhotoKeys[kn]) g_drivePhotoKeys[kn]={};
-        g_drivePhotoKeys[kn][kd] = items3;
-        dbg('loadPhotosForDate: Drive(API) '+urls3.length+'장','ok');
-      } else {
-        dbg('loadPhotosForDate: 사진 없음 (key='+key+')','warn');
-      }
-    }catch(e){ dbg('loadPhotosForDate Drive API 오류: '+e.message,'err'); }
+    dbg('loadPhotosForDate: '+blobs.length+'장','ok');
   } else {
-    dbg('loadPhotosForDate: 사진 없음 (key='+key+')','warn');
+    dbg('loadPhotosForDate: 사진 없음','warn');
   }
   renderPhotoPreviews();
 }
 
 
 async function getPhotoUrls(key){
-  dbg('getPhotoUrls: '+key,'ok');
-  // 1) 세션 캐시
   var urls = g_sessionPhotos[key];
-  if(urls && urls.length){ dbg('→ 세션캐시 '+urls.length+'장','ok'); return urls; }
+  if(urls && urls.length) return urls;
 
-  // 2) IndexedDB
+  // IndexedDB 단일 소스 (앱 시작 시 Drive에서 이미 전체 복원됨)
   var blobs = await loadPhotoDB(key);
   if(blobs && blobs.length){
     urls = blobs.map(function(b){ return URL.createObjectURL(b); });
     g_sessionPhotos[key] = urls;
-    dbg('→ IndexedDB '+urls.length+'장','ok');
     return urls;
   }
-
-  var parts = key.split('_');
-  var name  = parts[0];
-  var date  = parts.slice(1).join('_');
-
-  // 3) g_drivePhotoKeys (startup restore)
-  if(g_drivePhotoKeys[name] && g_drivePhotoKeys[name][date]){
-    var items = g_drivePhotoKeys[name][date];
-    urls = items.map(function(e){ return typeof e==='object' ? e.url : e; });
-    g_sessionPhotos[key] = urls;
-    dbg('→ g_drivePhotoKeys '+urls.length+'장','ok');
-    return urls;
-  }
-
-  // 4) localStorage Drive 메타
-  var driveUrls = getDriveUrls(key);
-  if(driveUrls.length){
-    g_sessionPhotos[key] = driveUrls;
-    dbg('→ Drive메타 '+driveUrls.length+'장','ok');
-    return driveUrls;
-  }
-
-  // 5) Drive API 직접 조회 (특정 날짜만, 삭제된 사진 미복원)
-  dbg('→ Drive API 조회 시도: '+name+'/'+date,'warn');
-  if(DRIVE_SCRIPT_URL && name && date){
-    try{
-      var res = await fetch(DRIVE_SCRIPT_URL,{
-        method:'POST', body:JSON.stringify({action:'list',name:name,date:date})
-      });
-      var j = await res.json();
-      if(j.success && j.photos && j.photos[date] && j.photos[date].length){
-        var items2 = j.photos[date];
-        urls = items2.map(function(e){return typeof e==='object'?e.url:e;});
-        g_sessionPhotos[key] = urls;
-        // g_drivePhotoKeys에도 저장
-        if(!g_drivePhotoKeys[name]) g_drivePhotoKeys[name]={};
-        g_drivePhotoKeys[name][date] = items2;
-        dbg('→ Drive API '+urls.length+'장','ok');
-        return urls;
-      } else {
-        dbg('→ Drive API 결과 없음','err');
-      }
-    }catch(e){ dbg('→ Drive API 오류: '+e.message,'err'); }
-  }
-
-  dbg('→ 사진 없음','err');
   return null;
 }
 
@@ -1830,8 +1544,6 @@ async function onPhotoRowTap(e, el){
 async function showPersonalPhotos(key){
   dbg('사진 팝업 열기: '+key,'ok');
   var user = key.substring(0, key.indexOf('_'));
-  dbg('사용자: '+user+' g_drivePhotoKeys 날짜수: '+
-    (g_drivePhotoKeys[user]?Object.keys(g_drivePhotoKeys[user]).length:0),'ok');
 
   // 해당 유저의 사진 있는 날짜 목록 구성
   dbg('getPhotoKeysForUser 호출','ok');
@@ -2010,24 +1722,10 @@ async function initTrack(){
 
 async function loadAndCache(key){
   if(!key) return null;
-  // 캐시 확인
   if(g_sessionPhotos[key]&&g_sessionPhotos[key].length) return g_sessionPhotos[key];
-  // IndexedDB
   var blobs = await loadPhotoDB(key);
   if(blobs&&blobs.length){
     var urls=blobs.map(function(b){return URL.createObjectURL(b);});
-    g_sessionPhotos[key]=urls; preDecodeImages(urls); return urls;
-  }
-  // g_drivePhotoKeys
-  var kp=key.split('_'),kn=kp[0],kd=kp.slice(1).join('_');
-  if(g_drivePhotoKeys[kn]&&g_drivePhotoKeys[kn][kd]){
-    var urls=g_drivePhotoKeys[kn][kd].map(function(e){return typeof e==='object'?e.url:e;});
-    g_sessionPhotos[key]=urls; preDecodeImages(urls); return urls;
-  }
-  // localStorage Drive 메타
-  var entries=getDriveEntries(key);
-  if(entries.length){
-    var urls=entries.map(function(e){return e.url;});
     g_sessionPhotos[key]=urls; preDecodeImages(urls); return urls;
   }
   return null;
@@ -2182,47 +1880,58 @@ function updatePhotoSectionVisibility(){
 /* ── Drive 복원 (IndexedDB 비었을 때만) ── */
 async function restoreFromDriveIfNeeded(){
   if(!DRIVE_SCRIPT_URL || !g_myName) return;
-  // 오늘 날짜 key로 IndexedDB 확인
-  var todayKey = g_myName + '_' + (function(){
-    var d=new Date(); return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
-  })();
-  var blobs = await loadPhotoDB(todayKey);
-  if(blobs && blobs.length > 0) return; // IndexedDB 있으면 복원 불필요
 
-  // IndexedDB 비어있으면 Drive에서 복원
-  showDriveStatus('📡 Drive에서 내 사진 복원 중...');
+  // IndexedDB에 내 사진이 하나라도 있으면 복원 불필요
+  var hasAny = await hasAnyPhotoInIndexedDB(g_myName);
+  if(hasAny){ dbg('IndexedDB에 기존 사진 있음 - 복원 스킵','ok'); return; }
+
+  dbg('IndexedDB 비어있음 - Drive 전체 복원 시작','warn');
+  showDriveStatus('📡 Drive에서 내 사진 전체 복원 중...');
   try{
     var res = await fetch(DRIVE_SCRIPT_URL,{
       method:'POST', body:JSON.stringify({action:'list', name:g_myName})
     });
     var j = await res.json();
     if(!j.success || !j.photos){
-      showDriveStatus('⚠️ Drive 응답 없음', 3000); return;
+      showDriveStatus('⚠️ Drive에 저장된 사진 없음', 3000);
+      return;
     }
-    // 날짜 정규화 후 g_drivePhotoKeys 저장
-    var normalized = {};
-    Object.keys(j.photos).forEach(function(date){
-      var nd = normDateStr(date);
-      if(!normalized[nd]) normalized[nd]=[];
-      (j.photos[date]||[]).forEach(function(item){
-        var id  = typeof item==='object'?item.driveId:(extractDriveId(item)||'');
-        var url = typeof item==='object'?item.url:item;
-        if(!normalized[nd].some(function(e){return e.driveId===id;}))
-          normalized[nd].push({driveId:id,url:url});
-      });
-    });
-    g_drivePhotoKeys[g_myName] = normalized;
-    var meta = getDriveMeta();
-    Object.keys(meta).forEach(function(k){ if(k.indexOf(g_myName+'_')===0) delete meta[k]; });
-    Object.keys(normalized).forEach(function(d){ meta[g_myName+'_'+d]=normalized[d]; });
-    saveDriveMeta(meta);
-    var cnt = Object.keys(normalized).length;
-    showDriveStatus('✅ '+cnt+'개 날짜 복원 완료 (Drive→앱)', 4000);
-    // 현재 날짜 사진 즉시 로드
-    loadPhotosForDate();
+
+    var dates = Object.keys(j.photos);
+    var restoredDates = 0, restoredPhotos = 0;
+
+    for(var i=0; i<dates.length; i++){
+      var rawDate = dates[i];
+      var nd = normDateStr(rawDate);
+      var items = j.photos[rawDate] || [];
+      if(!items.length) continue;
+
+      var key = g_myName + '_' + nd;
+      var blobs = [];
+      for(var k=0; k<items.length; k++){
+        var it = items[k];
+        var url = typeof it==='object' ? it.url : it;
+        var driveId = typeof it==='object' ? it.driveId : (extractDriveId(it)||'');
+        try{
+          var r = await fetch(url);
+          var b = await r.blob();
+          blobs.push(b);
+          if(driveId) addDriveEntry(key, driveId, url); // 삭제 시 필요한 매핑 보존
+        }catch(e){ dbg('사진 다운로드 실패: '+url,'err'); }
+      }
+      if(blobs.length){
+        await savePhotoDB(key, blobs);
+        restoredDates++;
+        restoredPhotos += blobs.length;
+      }
+    }
+
+    showDriveStatus('✅ '+restoredDates+'개 날짜, '+restoredPhotos+'장 복원 완료', 4000);
+    dbg('Drive→IndexedDB 복원 완료: '+restoredDates+'개 날짜, '+restoredPhotos+'장','ok');
+    loadPhotosForDate(); // 현재 보고 있는 날짜 갱신
   }catch(e){
     showDriveStatus('❌ Drive 연결 실패', 3000);
-    console.warn('Drive 복원 오류:', e);
+    dbg('Drive 복원 오류: '+e.message,'err');
   }
 }
 
