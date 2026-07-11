@@ -695,6 +695,7 @@ document.getElementById('certDate').addEventListener('change', function(){
   // 현재 날짜 사진은 이미 DB에 저장됨 - 유지
   // 변경된 날짜에 저장된 사진 불러오기
   loadPhotosForDate();
+  checkAlreadyCertified();
 });
 
 document.getElementById('certName').addEventListener('change',function(){
@@ -702,6 +703,7 @@ document.getElementById('certName').addEventListener('change',function(){
   localStorage.setItem('pio_name',nv);
   updatePhotoSectionVisibility(); // 내 이름일 때만 사진 섹션 표시
   loadPhotosForDate(); // IndexedDB에서 즉시 로드
+  checkAlreadyCertified();
   // 참여인원 아닐 시 경고
   if(nv && allParticipants.length>0){
     var found=allParticipants.some(function(p){return p.name===nv;});
@@ -761,6 +763,35 @@ function toggleRest() {
 }
 
 /* ── 인증 제출 ── */
+// 날짜+이름 기준 이미 인증했는지 확인 → 버튼 상태 전환
+function checkAlreadyCertified(){
+  var dv=document.getElementById('certDate').value, nv=document.getElementById('certName').value.trim();
+  var btn=document.getElementById('certBtn');
+  if(!btn) return false;
+  if(!dv || !nv || !allParticipants.length){
+    btn.disabled=false; btn.innerHTML='<span>💪</span> 인증 제출하기';
+    btn.style.opacity=''; btn.style.cursor='';
+    return false;
+  }
+  var found=allParticipants.find(function(p){return p.name===nv;});
+  if(!found){
+    btn.disabled=false; btn.innerHTML='<span>💪</span> 인증 제출하기';
+    btn.style.opacity=''; btn.style.cursor='';
+    return false;
+  }
+  var parts=dv.split('-');
+  var dateKey=parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
+  if(found.byDate && found.byDate.hasOwnProperty(dateKey)){
+    btn.disabled=true;
+    btn.innerHTML='<span>✅</span> 인증 완료';
+    btn.style.opacity='0.6'; btn.style.cursor='not-allowed';
+    return true;
+  }
+  btn.disabled=false; btn.innerHTML='<span>💪</span> 인증 제출하기';
+  btn.style.opacity=''; btn.style.cursor='';
+  return false;
+}
+
 function submitCert(){
   var dv=document.getElementById('certDate').value, nv=document.getElementById('certName').value.trim();
   var btn=document.getElementById('certBtn'), st=document.getElementById('certStatus');
@@ -778,13 +809,12 @@ function submitCert(){
   if(allParticipants.length>0){
     var found=allParticipants.find(function(p){return p.name===nv;});
     if(!found){showCertStatus('err','⛔ 참여 인원이 아닙니다.');return;}
-    // 이미 인증한 날짜 체크
+    // 이미 인증한 날짜면 조용히 차단 (버튼이 '인증 완료'로 이미 비활성화됨)
     var parts=dv.split('-');
     var dateKey=parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
     if(found.byDate && found.byDate.hasOwnProperty(dateKey)){
-      var isRestDay=found.byDate[dateKey];
-      var msg=isRestDay?'해당 날짜에 휴식권을 이미 사용하셨습니다.':'해당 날짜에 이미 운동 인증하셨습니다.';
-      showCertStatus('err','✅ '+msg);return;
+      checkAlreadyCertified();
+      return;
     }
   }
   var p=dv.split('-');
@@ -1050,6 +1080,7 @@ function processSheetData(table){
   // 버튼 즉시 활성화 (무거운 렌더링 전에)
   dbg('setDataReady(true) → 인증 버튼 활성화','ok');
   setDataReady(true); // 데이터 준비 완료 → 버튼 활성화
+  checkAlreadyCertified(); // 현재 날짜/이름 기준 인증완료 여부 즉시 반영
 
   // 차트/테이블 렌더링은 비동기로 (UI 차단 방지)
   try { renderChart(); } catch(e){ dbg('renderChart 오류: '+e.message,'err'); }
