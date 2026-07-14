@@ -221,6 +221,17 @@
   </style>
 </head>
 <body>
+<!-- 앱 시작 스플래시 화면 -->
+<div id="splashScreen" style="position:fixed;inset:0;background:#0a0e1a;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
+  <div style="font-size:52px;animation:splashPulse 1.4s ease-in-out infinite">💪</div>
+  <div style="font-size:22px;font-weight:800;color:#00e5a0;letter-spacing:1px">PIO 3기 챌린지</div>
+  <div id="splashDayInfo" style="font-size:15px;color:#8892a4;text-align:center;line-height:1.6">불러오는 중...</div>
+  <div style="width:120px;height:3px;background:#1e2d45;border-radius:2px;overflow:hidden;margin-top:6px">
+    <div id="splashBar" style="width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#00b8ff);transition:width .3s linear"></div>
+  </div>
+</div>
+<style>@keyframes splashPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.75}}</style>
+
 <!-- 최초 실행 설정 모달 -->
 <div id="setupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;padding:24px">
   <div style="background:#111827;border:1px solid rgba(0,229,160,.35);border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-sizing:border-box">
@@ -653,26 +664,141 @@ function switchSub(s) {
   else{card.className='today-card lunge';meta.textContent='오늘 · '+dayNum+'일차 (짝수)';exEl.textContent='런지 🦵';cnt.innerHTML='<b>다리별 100개</b> · 세트 무관, 세트 내 연속';emoji.textContent='🦵';dayEl.textContent=dayNum;}
 })();
 
-// 백그라운드로 status 로드 (휴식권 상태 확인용)
-(function(){
-  // IndexedDB 초기화 후 앱 시작
-  initPhotoDB().then(function(){
-    dbg('initPhotoDB 완료','ok');
-    initSetup();
-    applyMyName();
-    restoreFromDriveIfNeeded();
-    loadPhotosForDate();
-    var cached = loadFromCache();
-    dbg('loadFromCache: '+(cached?'✅ 캐시 사용':'❌ 캐시 없음, 시트 로드 필요'), cached?'ok':'warn');
-    if(!cached){
-      setDataReady(false);
-      dbg('setDataReady(false) → 시트 로딩 시작','warn');
-      setTimeout(function(){ dbg('loadStatus() 호출','warn'); loadStatus(); }, 0);
-      setTimeout(function(){ if(!g_dataReady){ dbg('⚠️ 15초 안전망 발동','err'); setDataReady(true); } }, 15000);
+// 스플래시 화면: 계산은 순수 날짜 기반 (시트 로딩과 무관, 즉시 표시)
+function computeDayInfo(){
+  var start=new Date('2026-06-03T00:00:00');
+  var today=new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
+  var dayNum=Math.floor((today-start)/86400000)+1;
+  if(dayNum<1) return '🗓️ 6월 3일부터 시작!';
+  if(dayNum>100) return '🏆 100일 달성! 수고하셨습니다';
+  if(dayNum%2===1) return '오늘 '+dayNum+'일차 (홀수) · 💪 푸쉬업 100개';
+  return '오늘 '+dayNum+'일차 (짝수) · 🦵 런지 다리별 100개';
+}
+
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+function setSplashProgress(pct){
+  var bar = document.getElementById('splashBar');
+  if(bar) bar.style.width = pct+'%';
+}
+
+function hideSplash(){
+  var el = document.getElementById('splashScreen');
+  if(!el) return;
+  el.style.transition = 'opacity .35s';
+  el.style.opacity = '0';
+  setTimeout(function(){ el.style.display='none'; }, 350);
+}
+
+// 오늘 사진만 빠르게 미리 로드 (IndexedDB에 없으면 이 날짜만 Drive에서 조회)
+async function preloadTodayPhoto(){
+  if(!g_myName){ return; }
+  var d = new Date();
+  var todayStr = d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+  var key = g_myName+'_'+todayStr;
+  var blobs = await loadPhotoDB(key);
+  if(blobs && blobs.length){ dbg('오늘 사진 IndexedDB에 이미 있음: '+blobs.length+'장','ok'); return; }
+  if(!DRIVE_SCRIPT_URL) return;
+  try{
+    var res = await fetch(DRIVE_SCRIPT_URL,{
+      method:'POST', body:JSON.stringify({action:'list', name:g_myName, date:todayStr})
+    });
+    var j = await res.json();
+    if(j.success && j.photos && j.photos[todayStr] && j.photos[todayStr].length){
+      var items = j.photos[todayStr];
+      var downloaded = [];
+      for(var i=0;i<items.length;i++){
+        var it=items[i];
+        var url = typeof it==='object'?it.url:it;
+        var driveId = typeof it==='object'?it.driveId:(extractDriveId(it)||'');
+        try{
+          var r = await fetch(url); var b = await r.blob();
+          downloaded.push(b);
+          if(driveId) addDriveEntry(key, driveId, url);
+        }catch(e){}
+      }
+      if(downloaded.length){ await savePhotoDB(key, downloaded); dbg('오늘 사진 Drive에서 복원: '+downloaded.length+'장','ok'); }
     } else {
-      setDataReady(true);
-      dbg('setDataReady(true) → 캐시로 완료','ok');
+      dbg('오늘 사진 없음 (Drive)','ok');
     }
+  }catch(e){ dbg('오늘 사진 로딩 실패: '+e.message,'err'); }
+}
+
+// 시트 데이터 로딩을 Promise로 감싼 버전 (splash 시퀀스 전용, UI 스피너 조작 없음)
+function loadStatusAsync(){
+  return new Promise(function(resolve){
+    if(loadFromCache()){ resolve(); return; }
+    var gid = FORM_GID || '0';
+    loadSheetJsonp(null, gid, function(err, data){
+      if(!err && data && isFormResponseSheet(data.table)){
+        try{ processSheetData(data.table); }catch(e){ dbg('[2/2] processSheetData 오류: '+e.message,'err'); }
+      } else {
+        dbg('[2/2] 시트 로딩 실패 또는 형식 오류','err');
+      }
+      resolve();
+    });
+  });
+}
+
+(function(){
+  // 스플래시에 오늘 운동 정보 즉시 표시 (네트워크 무관)
+  var infoEl = document.getElementById('splashDayInfo');
+  if(infoEl) infoEl.textContent = computeDayInfo();
+
+  var T0 = Date.now();
+  setSplashProgress(10);
+
+  var stepsPromise = (async function(){
+    await initPhotoDB();
+    dbg('IndexedDB 초기화 완료','ok');
+    setSplashProgress(30);
+
+    // 1단계: 로컬 저장소에서 이름 확인
+    applyMyName();
+    dbg('[1/2] 로컬 이름 확인 - 나: '+(g_myName||'없음')+' / 짝꿍: '+(g_partnerName||'없음'),'ok');
+    setSplashProgress(50);
+
+    // 2단계: 오늘 인증 여부 확인을 위한 시트 데이터 로딩
+    dbg('[2/2] 시트 데이터 로딩 시작','warn');
+    await loadStatusAsync();
+    dbg('[2/2] 시트 데이터 로딩 완료','ok');
+    setSplashProgress(100);
+  })();
+
+  Promise.race([
+    stepsPromise.then(function(){ return 'done'; }),
+    sleep(1500).then(function(){ return 'timeout'; })
+  ]).then(async function(result){
+    var elapsed = Date.now() - T0;
+    if(result === 'done'){
+      dbg('모든 단계 완료 ('+elapsed+'ms) - 즉시 전환','ok');
+    } else {
+      dbg('⏱️ 1.5초 초과 - 강제 전환, 나머지는 백그라운드에서 계속 진행','warn');
+    }
+
+    hideSplash();
+    initSetup();          // 이름 미설정 시 설정 모달 표시 (스플래시 종료 후)
+    checkAlreadyCertified();
+
+    if(!g_dataReady){
+      setDataReady(false);
+      setTimeout(function(){ if(!g_dataReady){ dbg('⚠️ 안전망 발동 - 강제 활성화','err'); setDataReady(true); } }, 10000);
+    }
+
+    // 1~2단계가 완전히 끝난 뒤에만 화면 최종 반영 + Drive 전체 복원 시작
+    // (스플래시가 1.5초 타임아웃으로 먼저 닫힌 경우, 이 블록은 백그라운드 완료 시점에 실행됨)
+    stepsPromise.then(function(){
+      dbg(result==='timeout' ? '백그라운드 단계 전체 완료 - 화면 갱신' : '단계 완료 확인됨','ok');
+      checkAlreadyCertified();
+      restoreFromDriveIfNeeded(); // 오늘/짝꿍 인증여부 데이터 로딩이 끝난 뒤에 시작
+    });
+
+    // 오늘 사진 미리 로딩: 스플래시 종료 후 진행, 완료되면 화면 반영
+    dbg('스플래시 종료 - 오늘 사진 로딩 시작','warn');
+    preloadTodayPhoto().then(function(){
+      dbg('오늘 사진 로딩 완료 - 화면 갱신','ok');
+      loadPhotosForDate();
+    });
   });
 })();
 
@@ -792,6 +918,22 @@ function checkAlreadyCertified(){
   return false;
 }
 
+// 버튼을 잠깐 오류 상태(빨간색)로 표시했다가 원상복구
+function flashCertBtnError(msg){
+  var btn=document.getElementById('certBtn');
+  if(!btn) return;
+  var prevHtml = btn.innerHTML;
+  var prevBg = btn.style.background;
+  btn.disabled = true;
+  btn.style.background = 'linear-gradient(135deg,#ff6b6b,#e04848)';
+  btn.innerHTML = '<span>⛔</span> '+msg;
+  setTimeout(function(){
+    btn.style.background = prevBg;
+    btn.disabled = false;
+    checkAlreadyCertified(); // 정상 상태로 재계산 (인증완료/제출가능 판단)
+  }, 2200);
+}
+
 function submitCert(){
   var dv=document.getElementById('certDate').value, nv=document.getElementById('certName').value.trim();
   var btn=document.getElementById('certBtn'), st=document.getElementById('certStatus');
@@ -802,18 +944,23 @@ function submitCert(){
   // 내 이름 또는 짝꿍 이름만 인증 가능
   if(g_myName && g_partnerName){
     if(nv !== g_myName && nv !== g_partnerName){
+      flashCertBtnError('내 이름/짝꿍만 가능');
       showCertStatus('err','⛔ 내 이름('+g_myName+') 또는 짝꿍('+g_partnerName+')만 인증 가능합니다.');
       return;
     }
   }
   if(allParticipants.length>0){
     var found=allParticipants.find(function(p){return p.name===nv;});
-    if(!found){showCertStatus('err','⛔ 참여 인원이 아닙니다.');return;}
-    // 이미 인증한 날짜면 조용히 차단 (버튼이 '인증 완료'로 이미 비활성화됨)
+    if(!found){
+      flashCertBtnError('참여 인원이 아닙니다');
+      showCertStatus('err','⛔ 참여 인원이 아닙니다.');
+      return;
+    }
+    // 이미 인증한 날짜면 빨간 버튼으로 안내 후 '인증 완료' 상태로 복귀
     var parts=dv.split('-');
     var dateKey=parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
     if(found.byDate && found.byDate.hasOwnProperty(dateKey)){
-      checkAlreadyCertified();
+      flashCertBtnError('이미 인증했습니다');
       return;
     }
   }
@@ -833,7 +980,22 @@ function submitCert(){
   }
   btn.disabled=true;btn.innerHTML='<span>⏳</span> 제출 중...';
   document.getElementById('gform').submit();
-  setTimeout(function(){clearCache();localStorage.setItem('pio_name',nv);showCertStatus('ok','✅ 인증 완료! 오늘도 고생하셨어요 💪');btn.disabled=false;btn.innerHTML='<span>💪</span> 인증 제출하기';},1500);
+  setTimeout(function(){
+    clearCache();
+    localStorage.setItem('pio_name',nv);
+    showCertStatus('ok','✅ 인증 완료! 오늘도 고생하셨어요 💪');
+
+    // 구글 폼→시트 반영 지연과 무관하게, 로컬 데이터를 즉시 갱신해 중복 제출 방지
+    var parts2=dv.split('-');
+    var dateKey2=parseInt(parts2[0])+'/'+parseInt(parts2[1])+'/'+parseInt(parts2[2]);
+    var found2=allParticipants.find(function(p){return p.name===nv;});
+    if(found2){
+      if(!found2.byDate) found2.byDate={};
+      found2.byDate[dateKey2]=!!restChecked;
+    }
+    dbg('제출 완료 - 로컬 데이터 즉시 반영: '+nv+' '+dateKey2,'ok');
+    checkAlreadyCertified(); // 버튼을 '인증 완료' 상태로 전환 (재제출 차단)
+  },1500);
 }
 function showCertStatus(type,msg){var el=document.getElementById('certStatus');el.className='cstatus '+type;el.textContent=msg;}
 
@@ -2047,11 +2209,14 @@ function updatePhotoSectionVisibility(){
 async function restoreFromDriveIfNeeded(){
   if(!DRIVE_SCRIPT_URL || !g_myName) return;
 
-  // IndexedDB에 내 사진이 하나라도 있으면 복원 불필요
-  var hasAny = await hasAnyPhotoInIndexedDB(g_myName);
-  if(hasAny){ dbg('IndexedDB에 기존 사진 있음 - 복원 스킵','ok'); return; }
+  // "전체 복원"은 별도 플래그로 추적 (오늘 사진만 미리 로드된 상태와 구분하기 위함)
+  var flagKey = 'pio_full_restore_done_'+g_myName;
+  if(localStorage.getItem(flagKey) === '1'){
+    dbg('전체 복원 이미 완료됨 - 스킵','ok');
+    return;
+  }
 
-  dbg('IndexedDB 비어있음 - Drive 전체 복원 시작','warn');
+  dbg('Drive 전체 복원 시작 (백그라운드)','warn');
   showDriveStatus('📡 Drive에서 내 사진 전체 복원 중...');
   try{
     var res = await fetch(DRIVE_SCRIPT_URL,{
@@ -2060,11 +2225,12 @@ async function restoreFromDriveIfNeeded(){
     var j = await res.json();
     if(!j.success || !j.photos){
       showDriveStatus('⚠️ Drive에 저장된 사진 없음', 3000);
+      localStorage.setItem(flagKey, '1');
       return;
     }
 
     var dates = Object.keys(j.photos);
-    var restoredDates = 0, restoredPhotos = 0;
+    var restoredDates = 0, restoredPhotos = 0, skippedDates = 0;
 
     for(var i=0; i<dates.length; i++){
       var rawDate = dates[i];
@@ -2073,6 +2239,11 @@ async function restoreFromDriveIfNeeded(){
       if(!items.length) continue;
 
       var key = g_myName + '_' + nd;
+
+      // 이미 IndexedDB에 있는 날짜(예: 스플래시에서 미리 로드된 오늘)는 재다운로드 스킵
+      var existing = await loadPhotoDB(key);
+      if(existing && existing.length){ skippedDates++; continue; }
+
       var blobs = [];
       for(var k=0; k<items.length; k++){
         var it = items[k];
@@ -2092,9 +2263,11 @@ async function restoreFromDriveIfNeeded(){
       }
     }
 
+    localStorage.setItem(flagKey, '1');
     showDriveStatus('✅ '+restoredDates+'개 날짜, '+restoredPhotos+'장 복원 완료', 4000);
-    dbg('Drive→IndexedDB 복원 완료: '+restoredDates+'개 날짜, '+restoredPhotos+'장','ok');
+    dbg('Drive→IndexedDB 전체 복원 완료: '+restoredDates+'개 날짜 신규, '+skippedDates+'개 날짜 스킵(이미있음)','ok');
     loadPhotosForDate(); // 현재 보고 있는 날짜 갱신
+    checkAlreadyCertified();
   }catch(e){
     showDriveStatus('❌ Drive 연결 실패', 3000);
     dbg('Drive 복원 오류: '+e.message,'err');
@@ -2102,24 +2275,31 @@ async function restoreFromDriveIfNeeded(){
 }
 
 var g_debugLog = [];
+function renderDebugPanel(){
+  var el=document.getElementById('debugLog');
+  if(!el) return;
+  el.innerHTML=g_debugLog.map(function(l){
+    return '<div style="color:'+l.color+'">'+l.t+' '+l.msg+'</div>';
+  }).join('');
+}
 function toggleDebug(){
   var p=document.getElementById('debugPanel');
-  p.style.display = p.style.display==='none'?'block':'none';
+  var willShow = p.style.display==='none';
+  p.style.display = willShow ? 'block' : 'none';
+  if(willShow) renderDebugPanel(); // 열 때 전체 로그(초기 단계 포함) 다시 렌더링
 }
 function dbg(msg, type){
   var t=new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
   var color = type==='ok'?'#00e5a0':type==='err'?'#ff6b6b':type==='warn'?'#ffd700':'#8892a4';
-  g_debugLog.push({t,msg,color});
-  var el=document.getElementById('debugLog');
-  if(el) el.innerHTML=g_debugLog.slice(-20).map(function(l){
-    return '<div style="color:'+l.color+'">'+l.t+' '+l.msg+'</div>';
-  }).join('');
+  g_debugLog.push({t:t,msg:msg,color:color});
+  renderDebugPanel();
   console.log('[PIO]',msg);
 }
 
 function clearDriveCache(){
   if(!confirm('Drive 사진 캐시를 초기화합니다.')) return;
   localStorage.removeItem('pio_drive_meta');
+  if(g_myName) localStorage.removeItem('pio_full_restore_done_'+g_myName);
   g_drivePhotoKeys={};
   Object.keys(g_sessionPhotos).forEach(function(k){delete g_sessionPhotos[k];});
   alert('캐시 초기화 완료'); location.reload();
