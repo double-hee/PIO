@@ -66,6 +66,20 @@
     .flabel{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
     .freq{color:var(--accent);margin-left:2px;}
     .cinput{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;color:var(--text);font-size:15px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;}
+    .cinput:-webkit-autofill,
+    .cinput:-webkit-autofill:hover,
+    .cinput:-webkit-autofill:focus,
+    .cinput:-webkit-autofill:active,
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active{
+      -webkit-text-fill-color: var(--text) !important;
+      -webkit-box-shadow: 0 0 0 1000px var(--surface2) inset !important;
+      box-shadow: 0 0 0 1000px var(--surface2) inset !important;
+      caret-color: var(--text);
+      transition: background-color 5000s ease-in-out 0s;
+    }
     .cinput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,160,.15);}
     .cinput::placeholder{color:var(--muted);}
     input[type="date"].cinput::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:pointer;}
@@ -182,6 +196,16 @@
     /* PERSONAL */
     .personal-search-row{display:flex;gap:8px;margin-bottom:14px;}
     .personal-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;}
+    .personal-input:-webkit-autofill,
+    .personal-input:-webkit-autofill:hover,
+    .personal-input:-webkit-autofill:focus,
+    .personal-input:-webkit-autofill:active{
+      -webkit-text-fill-color: var(--text) !important;
+      -webkit-box-shadow: 0 0 0 1000px var(--surface) inset !important;
+      box-shadow: 0 0 0 1000px var(--surface) inset !important;
+      caret-color: var(--text);
+      transition: background-color 5000s ease-in-out 0s;
+    }
     .personal-input:focus{border-color:var(--accent2);}
     .personal-input::placeholder{color:var(--muted);}
     .personal-btn{padding:12px 18px;border-radius:12px;border:none;background:var(--accent2);color:#091318;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;}
