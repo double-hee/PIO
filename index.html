@@ -552,6 +552,20 @@ var g_todayEntries = []; // 오늘 인증한 사람들 (시간순)
 var PARTNERS_GID = '1891291890'; // 짝꿍 시트
 var g_dataReady              = false;
 var g_pendingPersonalSearch  = false; // 현황 로딩 후 자동조회 예약
+// PIO4 마이그레이션: 첫 접속 시 1회 자동으로 구버전(PIO3) 캐시 초기화
+(function(){
+  var APP_VERSION = 'pio4-v1';
+  if(localStorage.getItem('pio_app_version') !== APP_VERSION){
+    localStorage.removeItem('pio_drive_meta');
+    // 이름별 전체복원 완료 플래그 전부 제거
+    Object.keys(localStorage).forEach(function(k){
+      if(k.indexOf('pio_full_restore_done_') === 0) localStorage.removeItem(k);
+    });
+    try{ sessionStorage.removeItem('pio_cache_v2'); }catch(e){}
+    localStorage.setItem('pio_app_version', APP_VERSION);
+  }
+})();
+
 var g_myName         = localStorage.getItem('pio_my_name')    || '';
 var g_partnerName    = localStorage.getItem('pio_partner_name') || '';
 var g_sessionPhotos  = {}; // {name_dateKey: [objectURL, ...]} - cert form용
