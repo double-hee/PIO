@@ -2384,7 +2384,7 @@ document.addEventListener('click', function(e){
 
 /* ── 최초 설정 ── */
 function initSetup(){
-  if(!g_myName || !g_partnerName){
+  if(!g_myName){
     document.getElementById('setupOverlay').style.display='flex';
   }
 }
@@ -2623,28 +2623,45 @@ var ADMIN_NAME = '이중희';
 function isAdmin(){ return g_myName === ADMIN_NAME; }
 
 /* ── 관리자: 참여인원/짝꿍 편집 ── */
-var g_adminRows = null; // [{name, partner}] 편집 중인 로컬 상태
+var g_adminPairs = null; // [{a, b}] 편집 중인 짝(pair) 목록 (b는 짝꿍 없으면 빈 문자열)
 
 async function openParticipantsAdmin(){
   document.getElementById('modalTitle').textContent = '✏️ 참여인원·짝꿍 수정';
   document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
   var pairs = await getNamePairs();
-  // 편집용 로컬 복사본 (이중희 기본 보장)
-  g_adminRows = pairs.map(function(p){ return {name:p.name, partner:p.partner||''}; });
-  if(!g_adminRows.some(function(p){return p.name===ADMIN_NAME;})){
-    g_adminRows.unshift({name:ADMIN_NAME, partner:''});
-  }
+
+  // 이름 목록을 "쌍" 단위로 묶기 (A↔B는 한 줄, 짝꿍 없으면 혼자 한 줄)
+  var byName = {};
+  pairs.forEach(function(p){ byName[p.name] = p.partner || ''; });
+  if(!byName.hasOwnProperty(ADMIN_NAME)) byName[ADMIN_NAME] = '';
+
+  var visited = {};
+  var adminPairs = [];
+  Object.keys(byName).sort(function(a,b){return a.localeCompare(b,'ko');}).forEach(function(name){
+    if(visited[name]) return;
+    var partner = byName[name];
+    visited[name] = true;
+    if(partner && byName.hasOwnProperty(partner)){
+      visited[partner] = true;
+      adminPairs.push({a:name, b:partner});
+    } else {
+      adminPairs.push({a:name, b:''}); // 짝꿍 없음(혼자)
+    }
+  });
+
+  g_adminPairs = adminPairs;
   renderAdminRows();
 }
 
 function renderAdminRows(){
-  var sorted = g_adminRows.slice().sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+  var sorted = g_adminPairs.slice().sort(function(x,y){return x.a.localeCompare(y.a,'ko');});
   var rowsHtml = sorted.map(function(p){
-    var idx = g_adminRows.indexOf(p);
+    var idx = g_adminPairs.indexOf(p);
     return '<div style="display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">'
-      + '<input value="'+p.name.replace(/"/g,'&quot;')+'" placeholder="이름" oninput="g_adminRows['+idx+'].name=this.value" '
+      + '<input value="'+p.a.replace(/"/g,'&quot;')+'" placeholder="이름" oninput="g_adminPairs['+idx+'].a=this.value" '
         + 'style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit">'
-      + '<input value="'+(p.partner||'').replace(/"/g,'&quot;')+'" placeholder="짝꿍(선택)" oninput="g_adminRows['+idx+'].partner=this.value" '
+      + '<span style="color:var(--muted);font-size:13px">↔</span>'
+      + '<input value="'+(p.b||'').replace(/"/g,'&quot;')+'" placeholder="짝꿍(선택)" oninput="g_adminPairs['+idx+'].b=this.value" '
         + 'style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit">'
       + '<button onclick="removeAdminRow('+idx+')" style="background:none;border:none;color:#ff8fa3;font-size:16px;cursor:pointer;padding:4px 6px">✕</button>'
       + '</div>';
@@ -2652,7 +2669,7 @@ function renderAdminRows(){
 
   var html = ''
     + '<div style="max-height:50vh;overflow-y:auto;margin-bottom:12px">'+rowsHtml+'</div>'
-    + '<button onclick="addAdminRow()" style="width:100%;margin-bottom:14px;padding:10px;border-radius:10px;border:1px dashed var(--border);background:none;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">+ 참여자 추가</button>'
+    + '<button onclick="addAdminRow()" style="width:100%;margin-bottom:14px;padding:10px;border-radius:10px;border:1px dashed var(--border);background:none;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">+ 참여자(짝) 추가</button>'
     + '<div style="display:flex;gap:8px">'
       + '<button onclick="showParticipantsPopup()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer">취소</button>'
       + '<button onclick="saveParticipantsAdmin()" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),#00b8ff);color:#091510;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">저장</button>'
@@ -2662,33 +2679,23 @@ function renderAdminRows(){
 }
 
 function addAdminRow(){
-  g_adminRows.push({name:'', partner:''});
+  g_adminPairs.push({a:'', b:''});
   renderAdminRows();
 }
 function removeAdminRow(idx){
-  g_adminRows.splice(idx, 1);
+  g_adminPairs.splice(idx, 1);
   renderAdminRows();
 }
 
 async function saveParticipantsAdmin(){
-  // 정리: 빈 이름 제거, 중복 이름 제거(마지막 값 우선)
+  // 쌍 목록 → 개별 이름/짝꿍 레코드로 펼치기 (양방향 자동 반영)
   var map = {};
-  g_adminRows.forEach(function(p){
-    var name = (p.name||'').trim();
-    if(!name) return;
-    map[name] = (p.partner||'').trim();
-  });
-
-  // 양방향 짝꿍 자동 보정: A의 짝꿍이 B면, B의 짝꿍도 A로 (B가 없으면 자동 추가)
-  Object.keys(map).forEach(function(name){
-    var partner = map[name];
-    if(!partner) return;
-    if(!map.hasOwnProperty(partner)){
-      map[partner] = name; // 짝꿍이 참여자 목록에 없으면 자동 추가
-    } else if(!map[partner]){
-      map[partner] = name; // 짝꿍 쪽이 비어있으면 채워줌
-    }
-    // 이미 다른 값이 있으면(충돌) 명시적으로 입력한 값을 존중하고 건드리지 않음
+  g_adminPairs.forEach(function(pair){
+    var a = (pair.a||'').trim();
+    var b = (pair.b||'').trim();
+    if(!a && !b) return;
+    if(a) map[a] = b || '';
+    if(b) map[b] = a || '';
   });
 
   var pairs = Object.keys(map).map(function(name){ return {name:name, partner:map[name]}; });
