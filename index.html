@@ -1233,6 +1233,7 @@ function loadSheetJsonp(sheetName, gid, cb){
     var s=document.getElementById('jscript_'+cbName);if(s)s.remove();delete window[cbName];cb(new Error('Timeout'));
   },7000);
   var url='https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=responseHandler:'+cbName
+    +'&headers=1'
     +(sheetName?'&sheet='+encodeURIComponent(sheetName):'')+(gid?'&gid='+gid:'');
   var sc=document.createElement('script');sc.id='jscript_'+cbName;
   sc.onerror=function(){clearTimeout(timer);sc.remove();delete window[cbName];cb(new Error('load error'));};
@@ -2309,6 +2310,8 @@ function getNamePairs(){
         var name=String(nc.f||nc.v).trim();
         var partner=pc&&pc.v?String(pc.f||pc.v).trim():'';
         if(!name||!isNaN(Number(name)))return;
+        // 헤더행이 데이터로 잘못 포함된 경우 방어 (gviz 헤더 자동인식 실패 대비)
+        if(name==='이름'||name==='Name'||name.toLowerCase()==='name')return;
         pairs.push({name:name, partner:partner});
       });
       pairs.sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
