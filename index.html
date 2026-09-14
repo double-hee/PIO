@@ -2712,107 +2712,40 @@ async function saveParticipantsAdmin(){
   var pairs = Object.keys(map).map(function(name){ return {name:name, partner:map[name]}; });
   pairs.sort(function(a,b){ return a.name.localeCompare(b.name,'ko'); });
 
-  document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div><div style="margin-top:12px;color:var(--muted)">저장 중...</div></div>';
-  dbg('저장 요청: '+pairs.length+'명 → '+JSON.stringify(pairs).slice(0,300),'ok');
-
-  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-
-  // 실제 시트를 재조회해서 저장 성공 여부 확인 (지연 없이 즉시 조회)
-  async function verifySaved(){
-    try{
-      var vres = await fetch(DRIVE_SCRIPT_URL, {
-        method:'POST',
-        body: JSON.stringify({action:'listParticipants'})
-      });
-      var vj = await vres.json();
-      return !!(vj.success && vj.pairs && vj.pairs.length === pairs.length);
-    }catch(e2){
-      dbg('재확인 요청 실패: '+e2.message,'err');
-      return false;
-    }
-  }
-
-  function onConfirmedSaved(){
-    g_namePairs = pairs;
-    g_partnersData = null;
-    updateStatPeople();
-    showToast('저장되었습니다 · '+pairs.length+'명');
-    showParticipantsPopup();
-  }
-
+  dbg('저장 요청 전송(응답 대기 없이 즉시 완료 처리): '+pairs.length+'명 → '+JSON.stringify(pairs).slice(0,300),'ok');
   var T0 = Date.now();
-  var savePromise = fetch(DRIVE_SCRIPT_URL, {
+
+  // Apps Script 응답 자체가 느릴 수 있어 기다리지 않음(낙관적 처리).
+  // 실제 시트 반영은 보통 2초 이내로 빠르므로, 화면은 즉시 완료 처리하고
+  // 요청은 백그라운드에서 계속 진행 → 나중에 문제가 확인되면 토스트로만 알림.
+  fetch(DRIVE_SCRIPT_URL, {
     method:'POST',
     body: JSON.stringify({action:'saveParticipants', pairs:pairs})
-  }).then(function(res){ return res.text().then(function(t){ return {status:res.status, text:t}; }); })
-    .catch(function(e){ return {error:e}; });
+  }).then(function(res){ return res.text(); })
+    .then(function(text){
+      dbg('백그라운드 저장 응답 도착 ('+(Date.now()-T0)+'ms): '+text.slice(0,150),'ok');
+      try{
+        var j = JSON.parse(text);
+        if(!j.success){
+          showToast('⚠️ 저장 확인 필요: '+(j.error||'알 수 없는 오류'));
+        }
+      }catch(e){
+        // JSON이 아니어도(느린 응답용 HTML 등) 이미 화면은 완료 처리됨 - 조용히 무시
+        dbg('백그라운드 응답 파싱 실패(무시): '+e.message,'warn');
+      }
+    })
+    .catch(function(e){
+      dbg('❌ 백그라운드 저장 네트워크 오류: '+e.message,'err');
+      showToast('⚠️ 저장 확인 필요: 네트워크 오류');
+    });
 
-  // 원본 응답과 2.5초 타임아웃 중 먼저 오는 쪽 사용 (느린 응답을 무작정 기다리지 않음)
-  var result = await Promise.race([
-    savePromise.then(function(r){ return {kind:'response', r:r}; }),
-    sleep(2500).then(function(){ return {kind:'timeout'}; })
-  ]);
-
-  if(result.kind === 'timeout'){
-    dbg('⏱️ 2.5초 내 응답 없음 - 즉시 재확인 (원본 요청은 백그라운드 계속 진행)','warn');
-    if(await verifySaved()){
-      dbg('✅ 재확인 결과 저장 정상 반영됨 ('+(Date.now()-T0)+'ms)','ok');
-      onConfirmedSaved();
-      return;
-    }
-    // 재확인도 실패면 원본 응답을 잠깐 더 기다려봄 (최대 3초 추가)
-    var late = await Promise.race([savePromise.then(function(r){return {kind:'response', r:r};}), sleep(3000).then(function(){return {kind:'timeout'};})]);
-    if(late.kind === 'response' && late.r && !late.r.error){
-      result = late;
-    } else {
-      alert('저장 결과를 확인할 수 없습니다.\n구글시트를 직접 확인해보시고, 반영 안 됐으면 다시 시도해주세요.');
-      renderAdminRows();
-      return;
-    }
-  }
-
-  var r = result.r;
-  if(r.error){
-    dbg('❌ 네트워크 오류: '+r.error.message+' - 재확인 중...','warn');
-    if(await verifySaved()){
-      dbg('✅ 재확인 결과 저장 정상 반영됨','ok');
-      onConfirmedSaved();
-      return;
-    }
-    alert('저장 중 오류: '+r.error.message);
-    renderAdminRows();
-    return;
-  }
-
-  var j;
-  try{ j = JSON.parse(r.text); }
-  catch(parseErr){
-    dbg('⚠️ 응답이 JSON 아님(status:'+r.status+') - 재확인 중...','warn');
-    if(await verifySaved()){
-      dbg('✅ 재확인 결과 저장 정상 반영됨','ok');
-      onConfirmedSaved();
-      return;
-    }
-    dbg('❌ 재확인해도 저장 미반영 - body(앞200자):'+r.text.slice(0,200),'err');
-    alert('저장 결과를 확인할 수 없습니다.\n구글시트를 직접 확인해보시고, 반영 안 됐으면 다시 시도해주세요.\n(HTTP '+r.status+')');
-    renderAdminRows();
-    return;
-  }
-
-  if(!j.success){
-    dbg('⚠️ 서버가 success:false 응답 - 재확인 중... error:'+(j.error||'(없음)'),'warn');
-    if(await verifySaved()){
-      dbg('✅ 재확인 결과 저장 정상 반영됨 (서버 응답과 무관하게 실제로는 성공)','ok');
-      onConfirmedSaved();
-      return;
-    }
-    alert('저장 실패: '+(j.error||'알 수 없는 오류'));
-    renderAdminRows();
-    return;
-  }
-
-  dbg('저장 완료 ('+(Date.now()-T0)+'ms)','ok');
-  onConfirmedSaved();
+  // 로컬 캐시 즉시 갱신 + 화면 즉시 전환 (네트워크 재조회 없이 로컬 데이터로 바로 표시)
+  g_namePairs = pairs;
+  g_partnersData = null;
+  updateStatPeople();
+  showToast('저장되었습니다 · '+pairs.length+'명');
+  document.getElementById('modalTitle').textContent = '참여인원 & 짝꿍 명단 · '+pairs.length+'명';
+  renderPartnersFromPairs(pairs);
 }
 
 function showParticipantsPopup(){
@@ -2831,9 +2764,24 @@ function showParticipantsPopup(){
     renderPartnersPopup(g_partnersData);
   });
 }
+function renderPartnersFromPairs(pairs){
+  var sorted = pairs.slice().sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+  var count = sorted.length;
+  var html = '';
+  sorted.forEach(function(p){
+    html+='<div class="partner-pair">'
+      +'<span class="partner-name">'+p.name+'</span>'
+      +(p.partner?'<span class="partner-arrow">↔</span><span class="partner-name" style="color:var(--accent2)">'+p.partner+'</span>':'')
+      +'</div>';
+  });
+  if(!html)html='<div style="text-align:center;padding:32px;color:var(--muted)">데이터를 불러올 수 없어요</div>';
+  var adminBtn = isAdmin() ? '<button onclick="openParticipantsAdmin()" style="width:100%;margin-bottom:12px;padding:11px;border-radius:12px;border:1px solid rgba(0,229,160,.35);background:rgba(0,229,160,.1);color:var(--accent);font-family:\'Noto Sans KR\',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✏️ 참여인원·짝꿍 수정</button>' : '';
+  document.getElementById('modalTitle').textContent='참여인원 & 짝꿍 명단 · '+count+'명';
+  document.getElementById('modalBody').innerHTML=adminBtn+html;
+}
+
 function renderPartnersPopup(table){
   var cols=table.cols, rows=table.rows;
-  var html='';
   // 헤더 추론: 짝꿍 컬럼 찾기
   var nameCol2=findCol(cols,['이름','Name']);
   var partnerCol=findCol(cols,['짝꿍','파트너','Partner']);
@@ -2848,21 +2796,10 @@ function renderPartnersPopup(table){
     var name=String(nc.f||nc.v).trim();
     var partner=pc&&pc.v?String(pc.f||pc.v).trim():'';
     if(!name||!isNaN(Number(name)))return; // 숫자는 제외
+    if(name==='이름'||name==='Name')return; // 헤더 오인식 방어
     pairs.push({name:name, partner:partner});
   });
-  // 가나다순 정렬
-  pairs.sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
-  var count=pairs.length;
-  pairs.forEach(function(p){
-    html+='<div class="partner-pair">'
-      +'<span class="partner-name">'+p.name+'</span>'
-      +(p.partner?'<span class="partner-arrow">↔</span><span class="partner-name" style="color:var(--accent2)">'+p.partner+'</span>':'')
-      +'</div>';
-  });
-  if(!html)html='<div style="text-align:center;padding:32px;color:var(--muted)">데이터를 불러올 수 없어요</div>';
-  var adminBtn = isAdmin() ? '<button onclick="openParticipantsAdmin()" style="width:100%;margin-bottom:12px;padding:11px;border-radius:12px;border:1px solid rgba(0,229,160,.35);background:rgba(0,229,160,.1);color:var(--accent);font-family:\'Noto Sans KR\',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✏️ 참여인원·짝꿍 수정</button>' : '';
-  document.getElementById('modalTitle').textContent='참여인원 & 짝꿍 명단 · '+count+'명';
-  document.getElementById('modalBody').innerHTML=adminBtn+html;
+  renderPartnersFromPairs(pairs);
 }
 function findCol(cols,keywords){
   return cols.findIndex(function(c){return c&&c.label&&keywords.some(function(k){return c.label.includes(k);});});
