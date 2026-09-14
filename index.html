@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>PIO 3기 챌린지</title>
+  <title>PIO 4기 챌린지</title>
 
   <!-- PWA 설치 필수 태그 -->
   <link rel="manifest" href="manifest.json" />
@@ -26,13 +26,13 @@
     @keyframes d2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
 
     /* HEADER */
-    header{position:relative;z-index:10;padding:44px 24px 18px;text-align:center;}
+    header{position:relative;z-index:10;padding:14px 24px 10px;text-align:center;}
     .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.25);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:3px;padding:7px 18px;border-radius:20px;margin-bottom:18px;text-transform:uppercase;}
-    h1{font-weight:300;font-size:clamp(26px,6vw,50px);line-height:1.15;letter-spacing:4px;background:linear-gradient(135deg,#fff 0%,var(--accent) 55%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:10px;}
-    .subtitle{color:var(--muted);font-size:14px;font-weight:300;letter-spacing:2px;margin-bottom:18px;}
+    h1{font-weight:300;font-size:clamp(22px,5.5vw,36px);line-height:1.1;letter-spacing:2px;background:linear-gradient(135deg,#fff 0%,var(--accent) 55%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;margin-top:4px;}
+    .subtitle{color:var(--muted);font-size:12px;font-weight:300;letter-spacing:1px;margin-bottom:10px;}
 
     /* MAIN TABS */
-    .tab-nav{position:relative;z-index:10;display:flex;max-width:680px;margin:0 auto 18px;padding:0 20px;gap:8px;}
+    .tab-nav{position:relative;z-index:10;display:flex;max-width:680px;margin:0 auto 10px;padding:0 20px;gap:8px;}
     .tab-btn{flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;}
     .tab-btn.ag{background:rgba(0,229,160,.12);border-color:var(--accent);color:var(--accent);}
     .tab-btn.ab{background:rgba(0,184,255,.12);border-color:var(--accent2);color:var(--accent2);}
@@ -41,16 +41,16 @@
     .page{display:none;} .page.active{display:block;}
 
     /* TODAY CARD */
-    .today-section{position:relative;z-index:10;max-width:680px;margin:0 auto 12px;padding:0 20px;}
-    .today-card{border-radius:20px;padding:20px 22px;display:flex;align-items:center;gap:16px;border:1px solid transparent;}
+    .today-section{position:relative;z-index:10;max-width:680px;margin:0 auto 8px;padding:0 20px;}
+    .today-card{border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px;border:1px solid transparent;}
     .today-card.pushup{background:linear-gradient(135deg,rgba(0,229,160,.13),rgba(0,229,160,.04));border-color:rgba(0,229,160,.4);box-shadow:var(--gg);}
     .today-card.lunge{background:linear-gradient(135deg,rgba(0,184,255,.13),rgba(0,184,255,.04));border-color:rgba(0,184,255,.4);box-shadow:var(--gb);}
     .today-card.done{background:rgba(255,255,255,.03);border-color:var(--border);}
-    .today-big-emoji{font-size:44px;line-height:1;flex-shrink:0;}
+    .today-big-emoji{font-size:30px;line-height:1;flex-shrink:0;}
     .today-info{flex:1;}
     .today-meta{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:3px;}
     .today-card.pushup .today-meta{color:var(--accent);} .today-card.lunge .today-meta{color:var(--accent2);} .today-card.done .today-meta{color:var(--muted);}
-    .today-ex{font-size:24px;font-weight:700;line-height:1.1;margin-bottom:4px;}
+    .today-ex{font-size:17px;font-weight:700;line-height:1.1;margin-bottom:2px;}
     .today-card.pushup .today-ex{color:var(--accent);} .today-card.lunge .today-ex{color:var(--accent2);} .today-card.done .today-ex{color:var(--muted);font-size:18px;}
     .today-cnt{font-size:12px;color:var(--muted);} .today-cnt b{color:var(--text);}
     .today-day-badge{flex-shrink:0;text-align:right;}
@@ -58,11 +58,11 @@
     .today-day-lbl{font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
 
     /* CERT FORM */
-    .cert-section{position:relative;z-index:10;max-width:680px;margin:0 auto 18px;padding:0 20px;}
+    .cert-section{position:relative;z-index:10;max-width:680px;margin:0 auto 10px;padding:0 20px;}
     .cert-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);}
-    .cert-hdr{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+    .cert-hdr{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
     .cert-hdr-icon{font-size:22px;} .cert-hdr-title{font-size:15px;font-weight:700;color:var(--accent);} .cert-hdr-sub{font-size:11px;color:var(--muted);margin-top:2px;}
-    .cert-body{padding:18px;display:flex;flex-direction:column;gap:13px;}
+    .cert-body{padding:14px;display:flex;flex-direction:column;gap:10px;}
     .flabel{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
     .freq{color:var(--accent);margin-left:2px;}
     .cinput{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;color:var(--text);font-size:15px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;}
@@ -83,7 +83,7 @@
     .cinput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,160,.15);}
     .cinput::placeholder{color:var(--muted);}
     input[type="date"].cinput::-webkit-calendar-picker-indicator{filter:invert(.5);cursor:pointer;}
-    .rest-row{display:flex;align-items:flex-start;gap:12px;background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.2);border-radius:12px;padding:14px 16px;cursor:pointer;transition:background .2s,border-color .2s;}
+    .rest-row{display:flex;align-items:flex-start;gap:10px;background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.2);border-radius:12px;padding:10px 14px;cursor:pointer;transition:background .2s,border-color .2s;}
     .rest-row.checked{background:rgba(255,77,109,.12);border-color:rgba(255,77,109,.4);}
     .rest-cb{width:20px;height:20px;border-radius:6px;border:2px solid #6b7a99;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:1px;}
     .rest-row.checked .rest-cb{background:#ff4d6d;border-color:#ff4d6d;}
@@ -98,7 +98,7 @@
     /* INFO + RULES */
     .ch-info{position:relative;z-index:10;max-width:680px;margin:0 auto 18px;padding:0 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
     .ic{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px 10px;text-align:center;}
-    .ic-emoji{font-size:20px;margin-bottom:6px;} .ic-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
+    .ic-emoji{font-size:20px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:3px;} .ic-label{font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
     .ic-val{font-size:13px;font-weight:700;} .ic-val small{font-size:10px;color:var(--muted);font-weight:400;display:block;}
     .rule-box{position:relative;z-index:10;max-width:680px;margin:0 auto 28px;padding:0 20px;}
     .rule-inner{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:14px;padding:15px 18px;display:flex;flex-wrap:wrap;gap:9px;}
@@ -248,29 +248,34 @@
 <!-- 앱 시작 스플래시 화면 -->
 <div id="splashScreen" style="position:fixed;inset:0;background:#0a0e1a;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
   <div style="font-size:52px;animation:splashPulse 1.4s ease-in-out infinite">💪</div>
-  <div style="font-size:22px;font-weight:800;color:#00e5a0;letter-spacing:1px">PIO 3기 챌린지</div>
+  <div style="font-size:22px;font-weight:800;color:#00e5a0;letter-spacing:1px">PIO 4기 챌린지</div>
   <div id="splashDayInfo" style="font-size:15px;color:#8892a4;text-align:center;line-height:1.6">불러오는 중...</div>
   <div style="width:120px;height:3px;background:#1e2d45;border-radius:2px;overflow:hidden;margin-top:6px">
     <div id="splashBar" style="width:0%;height:100%;background:linear-gradient(90deg,#00e5a0,#00b8ff);transition:width .3s linear"></div>
   </div>
 </div>
-<style>@keyframes splashPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.75}}</style>
+<style>@keyframes splashPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.75}}
+@keyframes settingsBlink{
+  0%,100%{background:rgba(0,229,160,.12);border-color:rgba(0,229,160,.3);color:var(--accent);box-shadow:none;}
+  50%{background:rgba(255,107,107,.22);border-color:#ff6b6b;color:#ff6b6b;box-shadow:0 0 0 4px rgba(255,107,107,.15);}
+}
+#settingsBtn.needs-setup{animation:settingsBlink 1.1s ease-in-out infinite;}
+</style>
 
 <!-- 최초 실행 설정 모달 -->
 <div id="setupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center;padding:24px">
   <div style="background:#111827;border:1px solid rgba(0,229,160,.35);border-radius:20px;padding:28px 24px;width:100%;max-width:380px;box-sizing:border-box">
     <div style="text-align:center;margin-bottom:22px">
       <div style="font-size:36px;margin-bottom:10px">💪</div>
-      <div style="font-size:18px;font-weight:700;color:#00e5a0">PIO 3기 챌린지</div>
-      <div style="font-size:13px;color:#6b7a99;margin-top:8px">처음 사용하시는군요!<br>내 이름과 짝꿍 이름을 입력해 주세요</div>
+      <div style="font-size:18px;font-weight:700;color:#00e5a0">PIO 4기 챌린지</div>
+      <div style="font-size:13px;color:#6b7a99;margin-top:8px">처음 사용하시는군요!<br>내 이름을 검색해서 선택해 주세요</div>
     </div>
-    <div style="margin-bottom:14px">
+    <div style="margin-bottom:24px;position:relative">
       <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">내 이름 *</div>
-      <input id="setupMyName" type="text" placeholder="홍길동" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
-    </div>
-    <div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">짝꿍 이름 *</div>
-      <input id="setupPartnerName" type="text" placeholder="짝꿍 이름" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+      <input id="setupMyName" type="text" placeholder="이름 검색" autocomplete="off" oninput="onNamePickerInput('setup')" onfocus="onNamePickerInput('setup')" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+      <div id="setupMyNameList" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;max-height:180px;overflow-y:auto;z-index:10"></div>
+      <div id="setupPartnerDisplay" style="margin-top:8px;color:#6b7a99;font-size:13px"></div>
+      <input id="setupPartnerName" type="hidden">
     </div>
     <button onclick="saveSetup()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#00e5a0,#00b8ff);color:#091510;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer">✅ 시작하기</button>
   </div>
@@ -282,13 +287,12 @@
       <div style="font-size:24px;margin-bottom:6px">⚙️</div>
       <div style="font-size:16px;font-weight:700;color:#00e5a0">설정</div>
     </div>
-    <div style="margin-bottom:14px">
+    <div style="margin-bottom:24px;position:relative">
       <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">내 이름</div>
-      <input id="settingsMyName" type="text" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
-    </div>
-    <div style="margin-bottom:24px">
-      <div style="font-size:12px;font-weight:700;color:#8892a4;letter-spacing:1px;margin-bottom:6px">짝꿍 이름</div>
-      <input id="settingsPartnerName" type="text" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+      <input id="settingsMyName" type="text" placeholder="이름 검색" autocomplete="off" oninput="onNamePickerInput('settings')" onfocus="onNamePickerInput('settings')" style="width:100%;box-sizing:border-box;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;color:#e2e8f0;padding:11px 14px;font-size:15px;font-family:inherit;outline:none">
+      <div id="settingsMyNameList" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:4px;background:#0d1520;border:1px solid #1e2d45;border-radius:10px;max-height:180px;overflow-y:auto;z-index:10"></div>
+      <div id="settingsPartnerDisplay" style="margin-top:8px;color:#6b7a99;font-size:13px"></div>
+      <input id="settingsPartnerName" type="hidden">
     </div>
     <div style="display:flex;gap:10px">
       <button onclick="closeSettings()" style="flex:1;padding:12px;border-radius:12px;border:1px solid #1e2d45;background:none;color:#8892a4;font-family:inherit;font-size:14px;cursor:pointer">취소</button>
@@ -302,15 +306,14 @@
 <div class="orb orb-2"></div>
 
 <header>
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <div class="badge">💪 100일 챌린지</div>
-    <button onclick="openSettings()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;line-height:1" title="설정">⚙️</button>
+  <div style="display:flex;justify-content:flex-end;align-items:center">
+    <button id="settingsBtn" onclick="openSettings()" style="background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;padding:7px 14px;border-radius:20px;display:flex;align-items:center;gap:5px;font-family:'Noto Sans KR',sans-serif" title="내 이름/짝꿍 등록"><span>👤</span> 내이름·짝꿍등록</button>
   </div>
     <button id="pwaInstallBtn" onclick="installPWA()" style="display:none;margin:0 auto 16px;align-items:center;gap:8px;padding:9px 20px;border-radius:20px;border:1px solid rgba(0,229,160,.4);background:rgba(0,229,160,.1);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">
       📲 앱으로 설치하기
     </button>
-  <h1>PIO 3기<br>챌린지</h1>
-  <p class="subtitle">6월 3일 ~ 9월 10일 · 100일간</p>
+  <h1 style="white-space:nowrap;font-size:clamp(22px,7.5vw,40px);letter-spacing:1px">PIO 4기 챌린지</h1>
+  <p class="subtitle" style="color:var(--accent);font-weight:700">9월 16일 ~ 12월 24일 · 100일간</p>
 </header>
 
 <div class="tab-nav">
@@ -345,26 +348,27 @@
         </div>
       </div>
       <div class="cert-body">
-        <div>
-          <div class="flabel">운동한 날짜<span class="freq">*</span></div>
-          <input type="date" id="certDate" class="cinput"/>
-        </div>
-        <div>
-          <div class="flabel">이름<span class="freq">*</span></div>
-          <input type="text" id="certName" class="cinput" placeholder="홍길동" maxlength="20"/>
+        <div style="display:flex;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div class="flabel">운동한 날짜<span class="freq">*</span></div>
+            <input type="date" id="certDate" class="cinput"/>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="flabel">이름<span class="freq">*</span></div>
+            <input type="text" id="certName" class="cinput" placeholder="설정에서 이름 등록" maxlength="20" disabled/>
+          </div>
         </div>
         <div class="rest-row" id="restRow" onclick="toggleRest()">
           <div class="rest-cb" id="restCb"><span class="rest-ci">✓</span></div>
           <div>
-            <div class="rest-title">🎫 휴식권 사용</div>
-            <div class="rest-desc">짝꿍 허락 후 짝꿍이 대신 인증하는 경우에만 체크 · 100일 동안 1회 허용!</div>
+            <div class="rest-title" style="font-size:15px">🎫 휴식권 사용</div>
           </div>
         </div>
         <button class="cbtn" id="certBtn" onclick="submitCert()"><span>💪</span> 인증 제출하기</button>
         <div class="cstatus" id="certStatus"></div>
 
         <!-- 사진/동영상 등록 (내 이름일 때만 표시) -->
-        <div class="photo-section" id="photoSection" style="display:flex;flex-direction:column;gap:12px">
+        <div class="photo-section" id="photoSection" style="display:flex;flex-direction:column;gap:8px">
           <div class="flabel" id="photoLabelNormal" style="margin-bottom:0">📸 사진 등록 <span style="color:var(--muted);font-weight:400;letter-spacing:0">(선택 · 최대 5개)</span></div>
           <div id="photoShareBar" style="display:none;align-items:center;justify-content:space-between;gap:8px">
             <button onclick="toggleSelectAll()" style="background:none;border:none;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;padding:4px 0">전체 선택</button>
@@ -397,19 +401,60 @@
     </div>
   </div>
 
-  <div class="ch-info">
-    <div class="ic"><div class="ic-emoji">🗓️</div><div class="ic-label">기간</div><div class="ic-val">100일<small>6.3 ~ 9.10</small></div></div>
-    <div class="ic"><div class="ic-emoji">💪</div><div class="ic-label">홀수일</div><div class="ic-val">푸쉬업<small>100개</small></div></div>
-    <div class="ic"><div class="ic-emoji">🦵</div><div class="ic-label">짝수일</div><div class="ic-val">런지<small>다리별 100개</small></div></div>
+  <div style="max-width:680px;margin:0 auto 14px;padding:0 20px;box-sizing:border-box">
+  <button onclick="var d=document.getElementById('certGuideDetail');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.cgd-arrow').textContent=open?'▲':'▼';" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:14px;border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
+    <span>📖</span> 인증 방법 보기 <span class="cgd-arrow" style="font-size:11px">▼</span>
+  </button>
+  </div>
+
+  <div id="certGuideDetail" style="display:none">
+  <div class="ch-info" style="grid-template-columns:1fr 1fr">
+    <div class="ic" style="border-color:rgba(0,229,160,.35)">
+      <div style="font-size:19px;font-weight:800;color:var(--accent);letter-spacing:.5px">3종 5세트</div>
+      <div class="ic-val" style="font-size:14px;line-height:1.6;text-align:left;padding-top:8px">
+        · 311푸쉬업 10회<br>· 무릎터치런지 10개<br>· 매달리기 30초
+      </div>
+    </div>
+    <div class="ic" style="border-color:rgba(0,184,255,.35)">
+      <div style="font-size:19px;font-weight:800;color:var(--accent2);letter-spacing:.5px">2종 7세트</div>
+      <div class="ic-val" style="font-size:14px;line-height:1.6;text-align:left;padding-top:8px">
+        · 311푸쉬업 10회<br>· 무릎터치런지 10개
+        <div style="margin-top:6px;color:var(--muted);font-size:11px">※ 매달리기 봉 없을 때 선택</div>
+      </div>
+    </div>
   </div>
 
   <div class="rule-box">
     <div class="rule-inner">
       <div class="rule-title">📋 인증 규칙</div>
-      <div class="rule-item"><div class="rule-dot"></div>세트수 무관, 세트간 휴식 허용 — 단, <b>세트 내 연속 실시</b></div>
+      <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+        <div>3종 5세트 <b>또는</b> 2종 7세트 <b>선택</b> 진행</div>
+      </div></div>
       <div class="rule-item"><div class="rule-dot"></div>운동 후 <b>짝꿍 태그</b>하여 셀카/영상 채팅방 업로드</div>
-      <div class="rule-item"><div class="rule-dot"></div><b>1회 휴식권</b> 사용 가능 (짝꿍 허락 후 짝꿍이 대신 인증)</div>
+      <div class="rule-item"><div class="rule-dot"></div><b>1회 휴식권</b> 사용 가능 (짝꿍 허락 필요. 단 1번 사용 가능)</div>
     </div>
+  </div>
+
+  <div class="rule-box" style="margin-top:10px">
+    <div class="rule-inner">
+      <div class="rule-title">🏋️ 운동 방법 자세히 보기</div>
+      <div id="howtoDetail" style="display:flex;flex-direction:column;gap:12px;width:100%;margin-top:10px">
+        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+          <div><b>① 311 PUSH-UP</b> <span style="color:var(--muted)">(푸쉬업바 추천)</span></div>
+          <div style="margin-top:3px">3초 DOWN → 1초 HOLD → 1초 UP — 내려갈 때 3초, 바닥에서 1초 정지, 올라올 때 1초 템포로 진행</div>
+        </div></div>
+        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+          <div><b>② 무릎 터치 런지</b></div>
+          <div style="margin-top:3px">런지 동작 시 <b>뒤쪽 무릎이 바닥에 가볍게 닿도록</b> 정확한 자세로 진행</div>
+        </div></div>
+        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+          <div><b>③ 매달리기</b></div>
+          <div style="margin-top:3px">견갑까지 충분히 축을 내린 완전한 매달리기(Dead Hang)로 시작. 쉬워지면 견갑을 잡은 상태(Active Hang)로 단계 업!</div>
+          <div style="margin-top:6px;color:var(--accent2);font-size:12px">→ PIO 5기 목표인 풀업(Pull-up)을 위한 예행 연습입니다</div>
+        </div></div>
+      </div>
+    </div>
+  </div>
   </div>
 </div>
 
@@ -488,31 +533,23 @@
   </div>
 </div>
 
-<footer><span class="acc">PIO 3기 챌린지</span> &nbsp;·&nbsp; 오늘도 함께 운동해요 💚</footer>
+<footer><span class="acc">PIO 4기 챌린지</span> &nbsp;·&nbsp; 오늘도 함께 운동해요 💚</footer>
 
-<!-- 구글폼 숨김 제출 -->
-<iframe name="cert_iframe" style="display:none"></iframe>
-<form id="gform" action="https://docs.google.com/forms/d/e/1FAIpQLSfD5C-rUH3A4Zz96NfBtjKZxmG7-rT84eFiiygZ4ne6-HfXgw/formResponse" method="POST" target="cert_iframe" style="display:none">
-  <input type="number" name="entry.9125364_year"  id="g_year">
-  <input type="number" name="entry.9125364_month" id="g_month">
-  <input type="number" name="entry.9125364_day"   id="g_day">
-  <input type="text"   name="entry.180367081"      id="g_name">
-</form>
 
 <script>
 // ★ Apps Script 배포 URL을 아래에 입력하세요
 // script.google.com → 배포 → 웹앱 URL 복사 후 붙여넣기
-var DRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHAQYM7pBMZQergVCDMEKz0kCUeUOHKGAx8KbKpczuW6dWOADXUmHUIMOyh5mesUzKZw/exec';
+var DRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx-ArAw4B2QU96zhC1Jq3GrBZ2xyQ2yPNDF3Zzqwe8CE0tS0-EaV5QItAbaLYeTBk4XnQ/exec';
 
-var SHEET_ID = '1msKfta9iO7v0lCkpfYbQk6nzrKFXsgm9ARHzQp1TfMA';
+var SHEET_ID = '1MZt5eoepMGt-k7TUD7GZ9uHZAQMN_Q0IceFKfJ6wDxM';
 // ★ 폼 응답 1 시트의 gid를 아래에 입력하세요
 // 구글 시트 → "폼 응답 1" 탭 클릭 → URL 끝의 #gid=숫자 확인
-var FORM_GID = '1293552944'; // 폼 응답 시트 gid
+var FORM_GID = '0'; // 폼 응답 시트 gid
 var allParticipants = [];
 var g_todayStr    = '';
 var g_elapsed     = 0;
 var g_todayEntries = []; // 오늘 인증한 사람들 (시간순)
-var PARTNERS_GID   = '1923675852'; // 짝꿍 시트
+var PARTNERS_GID = '1891291890'; // 짝꿍 시트
 var g_dataReady              = false;
 var g_pendingPersonalSearch  = false; // 현황 로딩 후 자동조회 예약
 var g_myName         = localStorage.getItem('pio_my_name')    || '';
@@ -676,27 +713,25 @@ function switchSub(s) {
 
 /* ── 오늘의 운동 ── */
 (function(){
-  var start=new Date('2026-06-03T00:00:00');
+  var start=new Date('2026-09-16T00:00:00');
   var today=new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   var dayNum=Math.floor((today-start)/86400000)+1;
   var card=document.getElementById('todayCard'), emoji=document.getElementById('todayEmoji'),
       meta=document.getElementById('todayMeta'), exEl=document.getElementById('todayEx'),
       cnt=document.getElementById('todayCnt'),   dayEl=document.getElementById('todayDayNum');
-  if(dayNum<1){card.className='today-card done';meta.textContent='챌린지 시작 전';exEl.textContent='6월 3일부터 시작!';emoji.textContent='🗓️';dayEl.textContent='D-'+Math.abs(dayNum-1);}
+  if(dayNum<1){card.className='today-card done';meta.textContent='챌린지 시작 전';exEl.textContent='9월 16일부터 시작!';emoji.textContent='🗓️';dayEl.textContent='D-'+Math.abs(dayNum-1);}
   else if(dayNum>100){card.className='today-card done';meta.textContent='챌린지 완료 🎉';exEl.textContent='100일 달성!';emoji.textContent='🏆';cnt.textContent='수고하셨습니다!';dayEl.textContent='100';}
-  else if(dayNum%2===1){card.className='today-card pushup';meta.textContent='오늘 · '+dayNum+'일차 (홀수)';exEl.textContent='푸쉬업 💪';cnt.innerHTML='<b>100개</b> · 세트 무관, 세트 내 연속';emoji.textContent='💪';dayEl.textContent=dayNum;}
-  else{card.className='today-card lunge';meta.textContent='오늘 · '+dayNum+'일차 (짝수)';exEl.textContent='런지 🦵';cnt.innerHTML='<b>다리별 100개</b> · 세트 무관, 세트 내 연속';emoji.textContent='🦵';dayEl.textContent=dayNum;}
+  else{card.className='today-card pushup';meta.textContent='오늘 · '+dayNum+'일차';exEl.textContent='5세트 💪';cnt.innerHTML='<b>311푸쉬업10 · 무릎터치런지10 · 매달리기30초</b> · 1세트 · 총 5세트(봉없으면 7세트)';emoji.textContent='💪';dayEl.textContent=dayNum;}
 })();
 
 // 스플래시 화면: 계산은 순수 날짜 기반 (시트 로딩과 무관, 즉시 표시)
 function computeDayInfo(){
-  var start=new Date('2026-06-03T00:00:00');
+  var start=new Date('2026-09-16T00:00:00');
   var today=new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   var dayNum=Math.floor((today-start)/86400000)+1;
-  if(dayNum<1) return '🗓️ 6월 3일부터 시작!';
+  if(dayNum<1) return '🗓️ 9월 16일부터 시작!';
   if(dayNum>100) return '🏆 100일 달성! 수고하셨습니다';
-  if(dayNum%2===1) return '오늘 '+dayNum+'일차 (홀수) · 💪 푸쉬업 100개';
-  return '오늘 '+dayNum+'일차 (짝수) · 🦵 런지 다리별 100개';
+  return '오늘 '+dayNum+'일차 · 💪 5세트 (311푸쉬업·무릎런지·매달리기)';
 }
 
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -907,9 +942,40 @@ function toggleRest() {
   if (g_restUsed) {
     return; // 휴식권 행에 이미 안내 표시됨
   }
+  if(!restChecked){
+    // 체크하려는 경우 확인
+    if(!confirm('짝꿍 허락 후 사용! 100일 동안 단 1회 허용!\n\n정말 사용하시겠습니까?')) return;
+  } else {
+    // 해제하는 경우 토스트 알림
+    showToast('휴식권 사용이 취소되었습니다.');
+  }
   restChecked=!restChecked;
   document.getElementById('restRow').classList.toggle('checked',restChecked);
   document.getElementById('restCb').classList.toggle('checked',restChecked);
+}
+
+// 간단한 토스트 알림
+function showToast(msg){
+  var el = document.getElementById('pioToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'pioToast';
+    el.style.cssText = 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);'
+      +'background:#1e2d45;color:#e2e8f0;padding:11px 20px;border-radius:24px;font-size:13px;font-weight:600;'
+      +'box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:99999;opacity:0;transition:opacity .25s,transform .25s;'
+      +'font-family:\'Noto Sans KR\',sans-serif;white-space:nowrap;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  clearTimeout(el._hideTimer);
+  requestAnimationFrame(function(){
+    el.style.opacity = '1';
+    el.style.transform = 'translateX(-50%) translateY(0)';
+  });
+  el._hideTimer = setTimeout(function(){
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 2000);
 }
 
 /* ── 인증 제출 ── */
@@ -958,14 +1024,12 @@ function flashCertBtnError(msg){
   }, 2200);
 }
 
-function submitCert(){
+async function submitCert(){
   var dv=document.getElementById('certDate').value, nv=document.getElementById('certName').value.trim();
   var btn=document.getElementById('certBtn'), st=document.getElementById('certStatus');
   if(!dv){showCertStatus('err','📅 날짜를 선택해주세요.');return;}
   if(!nv){showCertStatus('err','✏️ 이름을 입력해주세요.');return;}
-  // 참여인원 확인
   if(!g_dataReady){showCertStatus('err','⏳ 참여자 데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');return;}
-  // 내 이름 또는 짝꿍 이름만 인증 가능
   if(g_myName && g_partnerName){
     if(nv !== g_myName && nv !== g_partnerName){
       flashCertBtnError('내 이름/짝꿍만 가능');
@@ -973,6 +1037,7 @@ function submitCert(){
       return;
     }
   }
+  var dateKey;
   if(allParticipants.length>0){
     var found=allParticipants.find(function(p){return p.name===nv;});
     if(!found){
@@ -980,47 +1045,50 @@ function submitCert(){
       showCertStatus('err','⛔ 참여 인원이 아닙니다.');
       return;
     }
-    // 이미 인증한 날짜면 빨간 버튼으로 안내 후 '인증 완료' 상태로 복귀
     var parts=dv.split('-');
-    var dateKey=parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
+    dateKey=parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
     if(found.byDate && found.byDate.hasOwnProperty(dateKey)){
       flashCertBtnError('이미 인증했습니다');
       return;
     }
   }
   var p=dv.split('-');
-  document.getElementById('g_year').value=parseInt(p[0]);
-  document.getElementById('g_month').value=parseInt(p[1]);
-  document.getElementById('g_day').value=parseInt(p[2]);
-  document.getElementById('g_name').value=nv;
-  var ex=document.getElementById('g_rest');if(ex)ex.remove();
-  if(restChecked){
-    // 휴식권 사용 확인 다이얼로그
-    if(!confirm('⚠️ 휴식권 확인\n\n휴식권은 전체 기간 중 1회만 사용 가능합니다.\n정말 사용하시겠습니까?')){
-      btn.disabled=false; btn.innerHTML='<span>💪</span> 인증 제출하기';
+  var year=parseInt(p[0]), month=parseInt(p[1]), day=parseInt(p[2]);
+  if(!dateKey) dateKey=year+'/'+month+'/'+day;
+
+  btn.disabled=true;btn.innerHTML='<span>⏳</span> 제출 중...';
+
+  try{
+    var res = await fetch(DRIVE_SCRIPT_URL, {
+      method:'POST',
+      body: JSON.stringify({action:'submitCert', name:nv, year:year, month:month, day:day, rest:restChecked})
+    });
+    var j = await res.json();
+    if(!j.success){
+      showCertStatus('err','❌ 제출 실패: '+(j.error||'알 수 없는 오류'));
+      btn.disabled=false; checkAlreadyCertified();
       return;
     }
-    var ri=document.createElement('input');ri.type='hidden';ri.id='g_rest';ri.name='entry.1245390420';ri.value='휴식권 사용';document.getElementById('gform').appendChild(ri);
+  }catch(e){
+    showCertStatus('err','❌ 네트워크 오류: '+e.message);
+    btn.disabled=false; checkAlreadyCertified();
+    return;
   }
-  btn.disabled=true;btn.innerHTML='<span>⏳</span> 제출 중...';
-  document.getElementById('gform').submit();
-  setTimeout(function(){
-    clearCache();
-    localStorage.setItem('pio_name',nv);
-    showCertStatus('ok','✅ 인증 완료! 오늘도 고생하셨어요 💪');
 
-    // 구글 폼→시트 반영 지연과 무관하게, 로컬 데이터를 즉시 갱신해 중복 제출 방지
-    var parts2=dv.split('-');
-    var dateKey2=parseInt(parts2[0])+'/'+parseInt(parts2[1])+'/'+parseInt(parts2[2]);
-    var found2=allParticipants.find(function(p){return p.name===nv;});
-    if(found2){
-      if(!found2.byDate) found2.byDate={};
-      found2.byDate[dateKey2]=!!restChecked;
-    }
-    dbg('제출 완료 - 로컬 데이터 즉시 반영: '+nv+' '+dateKey2,'ok');
-    checkAlreadyCertified(); // 버튼을 '인증 완료' 상태로 전환 (재제출 차단)
-  },1500);
+  clearCache();
+  localStorage.setItem('pio_name',nv);
+  showCertStatus('ok','✅ 인증 완료! 오늘도 고생하셨어요 💪');
+
+  var found2=allParticipants.find(function(p){return p.name===nv;});
+  if(found2){
+    if(!found2.byDate) found2.byDate={};
+    found2.byDate[dateKey]=!!restChecked;
+  }
+  dbg('제출 완료 - 로컬 데이터 즉시 반영: '+nv+' '+dateKey,'ok');
+  checkAlreadyCertified();
 }
+
+
 function showCertStatus(type,msg){var el=document.getElementById('certStatus');el.className='cstatus '+type;el.textContent=msg;}
 
 /* ══ sessionStorage 캐시 ══ */
@@ -1178,7 +1246,7 @@ function processSheetData(table){
   dbg('컬럼: 이름='+nameCol+' 날짜='+dateCol+' 휴식='+restCol+' ts='+tsCol,'ok');
 
   // 시작일 / 오늘
-  var start=new Date('2026-06-03');start.setHours(0,0,0,0);
+  var start=new Date('2026-09-16');start.setHours(0,0,0,0);
   var today=new Date();today.setHours(0,0,0,0);
   g_elapsed=Math.min(Math.floor((today-start)/86400000)+1,100);
   g_todayStr=d2s(today);
@@ -1316,11 +1384,18 @@ function renderChart(){
 
 /* ══ 현황표 렌더링 ══ */
 function renderTable(){
-  // 1순위: 달성률(%) 내림차순 → 2순위: 휴식권 미사용 우선 → 3순위: 가나다순
+  // 오늘 인증 순서 맵 (g_todayEntries는 이미 시간순 정렬됨)
+  var todayOrder = {};
+  g_todayEntries.forEach(function(e, i){ todayOrder[e.name] = i; });
+
+  // 1순위: 달성률(%) 내림차순 → 2순위: 휴식권 미사용 우선 → 3순위: 오늘 인증한 순서
   var sorted = allParticipants.slice().sort(function(a,b){
     if (b.total !== a.total) return b.total - a.total;          // % 높은 순
     if (a.rest  !== b.rest)  return a.rest  - b.rest;           // 휴식권 안 쓴 사람 우선 (0 < 1)
-    return a.name.localeCompare(b.name, 'ko');                  // 가나다순
+    var ao = todayOrder.hasOwnProperty(a.name) ? todayOrder[a.name] : Infinity;
+    var bo = todayOrder.hasOwnProperty(b.name) ? todayOrder[b.name] : Infinity;
+    if (ao !== bo) return ao - bo;                               // 오늘 먼저 인증한 순
+    return a.name.localeCompare(b.name, 'ko');                   // 둘 다 오늘 미인증 시 가나다순
   });
 
   var html=sorted.map(function(p, idx){
@@ -1358,7 +1433,7 @@ async function searchPersonal(){
   var p=allParticipants.find(function(x){return x.name===name;});
   if(!p){document.getElementById('personalResult').innerHTML='<div class="no-result" style="padding:32px"><div style="font-size:28px;margin-bottom:10px">⛔</div><div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">참여 인원이 아닙니다.</div><div style="font-size:12px;color:var(--muted)">'+name+'</div></div>';return;}
 
-  var start=new Date('2026-06-03');start.setHours(0,0,0,0);
+  var start=new Date('2026-09-16');start.setHours(0,0,0,0);
   var today=new Date();today.setHours(0,0,0,0);
 
   // DB에서 이 사람의 사진 키 목록 가져오기
@@ -1449,6 +1524,7 @@ function onFilesSelected(files){
   if(files.length > remaining){
     alert('최대 5개까지만 등록됩니다. '+(files.length-remaining)+'개는 제외되었습니다.');
   }
+  if(added > 0) showCertStatus('','' ); // 사진 등록 시 이전 경고 메시지 즉시 제거
   saveSessionPhotos();
   renderPhotoPreviews();
 }
@@ -1729,11 +1805,11 @@ async function shareMedia(targetFiles){
       var ext = (f.type && f.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
       return new File([f], 'PIO_'+(i+1)+'.'+ext, {type: f.type || 'image/jpeg'});
     });
-    var shareData = { files: shareFiles, title: 'PIO 3기 챌린지 운동 인증' };
+    var shareData = { files: shareFiles, title: 'PIO 4기 챌린지 운동 인증' };
     if(navigator.canShare && navigator.canShare(shareData)){
       await navigator.share(shareData);
     } else {
-      await navigator.share({ title:'PIO 3기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
+      await navigator.share({ title:'PIO 4기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
     }
   } catch(e){
     if(e.name === 'AbortError') return;
@@ -2193,6 +2269,101 @@ function showDriveStatus(msg, autoHide){
   el.textContent=msg; el.style.display='block';
   if(autoHide) setTimeout(function(){ el.style.display='none'; }, autoHide);
 }
+/* ── 이름 검색/선택 (설정 모달 공용) ── */
+var g_namePairs = null; // [{name, partner}]
+var g_namePairsLoading = null;
+
+function getNamePairs(){
+  if(g_namePairs) return Promise.resolve(g_namePairs);
+  if(g_namePairsLoading) return g_namePairsLoading;
+  g_namePairsLoading = new Promise(function(resolve){
+    function build(table){
+      var cols=table.cols, rows=table.rows;
+      var nameCol=findCol(cols,['이름','Name']);
+      var partnerCol=findCol(cols,['짝꿍','파트너','Partner']);
+      if(nameCol<0)nameCol=0;
+      if(partnerCol<0)partnerCol=1;
+      var pairs=[];
+      rows.forEach(function(row){
+        if(!row||!row.c)return;
+        var nc=row.c[nameCol], pc=row.c[partnerCol];
+        if(!nc||!nc.v)return;
+        var name=String(nc.f||nc.v).trim();
+        var partner=pc&&pc.v?String(pc.f||pc.v).trim():'';
+        if(!name||!isNaN(Number(name)))return;
+        pairs.push({name:name, partner:partner});
+      });
+      pairs.sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+      if(!pairs.some(function(p){return p.name===ADMIN_NAME;})){
+        pairs.unshift({name:ADMIN_NAME, partner:''});
+      }
+      g_namePairs = pairs;
+      resolve(pairs);
+    }
+    if(g_partnersData){ build(g_partnersData); return; }
+    loadSheetJsonp(null, PARTNERS_GID, function(err, data){
+      if(!err && data && data.table){ g_partnersData=data.table; build(data.table); }
+      else resolve([{name:ADMIN_NAME, partner:''}]);
+    });
+  });
+  return g_namePairsLoading;
+}
+
+async function onNamePickerInput(scope){
+  var input = document.getElementById(scope+'MyName');
+  var listEl = document.getElementById(scope+'MyNameList');
+  var q = input.value.trim();
+  input.dataset.selected = ''; // 타이핑 시 선택 해제
+  document.getElementById(scope+'PartnerDisplay').textContent = '내 이름을 먼저 선택하세요';
+  document.getElementById(scope+'PartnerDisplay').style.color = '#6b7a99';
+  var partnerInput = document.getElementById(scope+'PartnerName');
+  if(partnerInput) partnerInput.value = '';
+
+  var pairs = await getNamePairs();
+  var filtered = q ? pairs.filter(function(p){ return p.name.indexOf(q)>=0; }) : pairs;
+  filtered = filtered.slice(0, 30);
+
+  if(!filtered.length){
+    listEl.innerHTML = '<div style="padding:12px 14px;color:#6b7a99;font-size:13px">검색 결과 없음</div>';
+    listEl.style.display = 'block';
+    return;
+  }
+  listEl.innerHTML = filtered.map(function(p){
+    return '<div class="name-pick-item" onmousedown="selectNamePick(\''+scope+'\',\''+p.name.replace(/'/g,"\\'")+'\',\''+(p.partner||'').replace(/'/g,"\\'")+'\')" '
+      +'style="padding:10px 14px;cursor:pointer;color:#e2e8f0;font-size:14px;border-bottom:1px solid #1e2d45">'+p.name
+      +(p.partner?' <span style="color:#6b7a99;font-size:12px">· 짝꿍 '+p.partner+'</span>':'')
+      +'</div>';
+  }).join('');
+  listEl.style.display = 'block';
+}
+
+function selectNamePick(scope, name, partner){
+  var input = document.getElementById(scope+'MyName');
+  input.value = name;
+  input.dataset.selected = '1';
+  document.getElementById(scope+'MyNameList').style.display = 'none';
+  var display = document.getElementById(scope+'PartnerDisplay');
+  var partnerInput = document.getElementById(scope+'PartnerName');
+  if(partner){
+    display.textContent = '짝꿍 : '+partner;
+    display.style.color = '#8892a4';
+  } else {
+    display.textContent = '짝꿍 정보 없음';
+    display.style.color = '#6b7a99';
+  }
+  if(partnerInput) partnerInput.value = partner || '';
+}
+
+// 목록 바깥 클릭/포커스아웃 시 드롭다운 닫기
+document.addEventListener('click', function(e){
+  ['setup','settings'].forEach(function(scope){
+    var input = document.getElementById(scope+'MyName');
+    var listEl = document.getElementById(scope+'MyNameList');
+    if(!input || !listEl) return;
+    if(e.target !== input && !listEl.contains(e.target)) listEl.style.display = 'none';
+  });
+});
+
 /* ── 최초 설정 ── */
 function initSetup(){
   if(!g_myName || !g_partnerName){
@@ -2200,9 +2371,11 @@ function initSetup(){
   }
 }
 function saveSetup(){
-  var myName = document.getElementById('setupMyName').value.trim();
+  var myNameInput = document.getElementById('setupMyName');
+  var myName = myNameInput.value.trim();
   var partnerName = document.getElementById('setupPartnerName').value.trim();
-  if(!myName || !partnerName){ alert('이름을 모두 입력해 주세요.'); return; }
+  if(!myName){ alert('이름을 검색해서 목록에서 선택해 주세요.'); return; }
+  if(myNameInput.dataset.selected !== '1'){ alert('목록에서 이름을 선택해 주세요.'); return; }
   g_myName = myName;
   g_partnerName = partnerName;
   localStorage.setItem('pio_my_name', myName);
@@ -2220,6 +2393,39 @@ function applyMyName(){
   if(personalInput && !personalInput.value) personalInput.value = g_myName;
   // 사진 섹션: 내 이름일 때만 표시
   updatePhotoSectionVisibility();
+  updateSettingsBtnState();
+}
+
+// 이름 미설정 시 설정 버튼 깜빡이며 강조 + 인증 이름 입력/제출 잠금
+function updateSettingsBtnState(){
+  var btn = document.getElementById('settingsBtn');
+  var certName = document.getElementById('certName');
+  var certBtn = document.getElementById('certBtn');
+  var bothSet = g_myName && g_partnerName;
+  if(certName){
+    certName.disabled = !bothSet;
+    certName.placeholder = bothSet ? '홍길동' : '설정에서 이름 등록';
+  }
+  if(certBtn){
+    if(!bothSet){
+      certBtn.disabled = true;
+      certBtn.style.opacity = '0.5';
+      certBtn.style.cursor = 'not-allowed';
+      certBtn.innerHTML = '<span>👤</span> 이름 설정 후 인증 가능';
+    } else {
+      certBtn.style.opacity = '';
+      certBtn.style.cursor = '';
+      checkAlreadyCertified(); // 제출가능/인증완료 상태를 정확히 재계산
+    }
+  }
+  if(!btn) return;
+  if(!bothSet){
+    btn.classList.add('needs-setup');
+    btn.innerHTML = '<span>👤</span> 내이름·짝꿍등록';
+  } else {
+    btn.classList.remove('needs-setup');
+    btn.innerHTML = '<span>👤</span> '+g_myName;
+  }
 }
 function updatePhotoSectionVisibility(){
   var certName = document.getElementById('certName');
@@ -2329,8 +2535,13 @@ function clearDriveCache(){
   alert('캐시 초기화 완료'); location.reload();
 }
 function openSettings(){
-  document.getElementById('settingsMyName').value = g_myName;
+  var myNameInput = document.getElementById('settingsMyName');
+  myNameInput.value = g_myName;
+  myNameInput.dataset.selected = g_myName ? '1' : '';
   document.getElementById('settingsPartnerName').value = g_partnerName;
+  var display = document.getElementById('settingsPartnerDisplay');
+  if(g_partnerName){ display.textContent = '짝꿍 : '+g_partnerName; display.style.color = '#8892a4'; }
+  else { display.textContent = ''; display.style.color = '#6b7a99'; }
   var el = document.getElementById('settingsOverlay');
   if(el) el.style.display = 'flex';
 }
@@ -2339,9 +2550,11 @@ function closeSettings(){
   if(el) el.style.display = 'none';
 }
 function saveSettings(){
-  var myName = document.getElementById('settingsMyName').value.trim();
+  var myNameInput = document.getElementById('settingsMyName');
+  var myName = myNameInput.value.trim();
   var partnerName = document.getElementById('settingsPartnerName').value.trim();
-  if(!myName || !partnerName){ alert('이름을 모두 입력해 주세요.'); return; }
+  if(!myName){ alert('이름을 검색해서 목록에서 선택해 주세요.'); return; }
+  if(myNameInput.dataset.selected !== '1'){ alert('목록에서 이름을 선택해 주세요.'); return; }
   g_myName = myName;
   g_partnerName = partnerName;
   localStorage.setItem('pio_my_name', myName);
@@ -2388,6 +2601,105 @@ function showTodayPopup(){
 
 /* ── 참여인원 + 짝꿍 팝업 ── */
 var g_partnersData = null;
+var ADMIN_NAME = '이중희';
+function isAdmin(){ return g_myName === ADMIN_NAME; }
+
+/* ── 관리자: 참여인원/짝꿍 편집 ── */
+var g_adminRows = null; // [{name, partner}] 편집 중인 로컬 상태
+
+async function openParticipantsAdmin(){
+  document.getElementById('modalTitle').textContent = '✏️ 참여인원·짝꿍 수정';
+  document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div></div>';
+  var pairs = await getNamePairs();
+  // 편집용 로컬 복사본 (이중희 기본 보장)
+  g_adminRows = pairs.map(function(p){ return {name:p.name, partner:p.partner||''}; });
+  if(!g_adminRows.some(function(p){return p.name===ADMIN_NAME;})){
+    g_adminRows.unshift({name:ADMIN_NAME, partner:''});
+  }
+  renderAdminRows();
+}
+
+function renderAdminRows(){
+  var sorted = g_adminRows.slice().sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
+  var rowsHtml = sorted.map(function(p){
+    var idx = g_adminRows.indexOf(p);
+    return '<div style="display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">'
+      + '<input value="'+p.name.replace(/"/g,'&quot;')+'" placeholder="이름" oninput="g_adminRows['+idx+'].name=this.value" '
+        + 'style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit">'
+      + '<input value="'+(p.partner||'').replace(/"/g,'&quot;')+'" placeholder="짝꿍(선택)" oninput="g_adminRows['+idx+'].partner=this.value" '
+        + 'style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 10px;font-size:13px;font-family:inherit">'
+      + '<button onclick="removeAdminRow('+idx+')" style="background:none;border:none;color:#ff8fa3;font-size:16px;cursor:pointer;padding:4px 6px">✕</button>'
+      + '</div>';
+  }).join('');
+
+  var html = ''
+    + '<div style="max-height:50vh;overflow-y:auto;margin-bottom:12px">'+rowsHtml+'</div>'
+    + '<button onclick="addAdminRow()" style="width:100%;margin-bottom:14px;padding:10px;border-radius:10px;border:1px dashed var(--border);background:none;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">+ 참여자 추가</button>'
+    + '<div style="display:flex;gap:8px">'
+      + '<button onclick="showParticipantsPopup()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer">취소</button>'
+      + '<button onclick="saveParticipantsAdmin()" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),#00b8ff);color:#091510;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer">저장</button>'
+    + '</div>';
+
+  document.getElementById('modalBody').innerHTML = html;
+}
+
+function addAdminRow(){
+  g_adminRows.push({name:'', partner:''});
+  renderAdminRows();
+}
+function removeAdminRow(idx){
+  g_adminRows.splice(idx, 1);
+  renderAdminRows();
+}
+
+async function saveParticipantsAdmin(){
+  // 정리: 빈 이름 제거, 중복 이름 제거(마지막 값 우선)
+  var map = {};
+  g_adminRows.forEach(function(p){
+    var name = (p.name||'').trim();
+    if(!name) return;
+    map[name] = (p.partner||'').trim();
+  });
+
+  // 양방향 짝꿍 자동 보정: A의 짝꿍이 B면, B의 짝꿍도 A로 (B가 없으면 자동 추가)
+  Object.keys(map).forEach(function(name){
+    var partner = map[name];
+    if(!partner) return;
+    if(!map.hasOwnProperty(partner)){
+      map[partner] = name; // 짝꿍이 참여자 목록에 없으면 자동 추가
+    } else if(!map[partner]){
+      map[partner] = name; // 짝꿍 쪽이 비어있으면 채워줌
+    }
+    // 이미 다른 값이 있으면(충돌) 명시적으로 입력한 값을 존중하고 건드리지 않음
+  });
+
+  var pairs = Object.keys(map).map(function(name){ return {name:name, partner:map[name]}; });
+  pairs.sort(function(a,b){ return a.name.localeCompare(b.name,'ko'); });
+
+  document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div><div style="margin-top:12px;color:var(--muted)">저장 중...</div></div>';
+
+  try{
+    var res = await fetch(DRIVE_SCRIPT_URL, {
+      method:'POST',
+      body: JSON.stringify({action:'saveParticipants', pairs:pairs})
+    });
+    var j = await res.json();
+    if(!j.success){
+      alert('저장 실패: '+(j.error||'알 수 없는 오류'));
+      renderAdminRows();
+      return;
+    }
+    // 로컬 캐시 갱신
+    g_namePairs = pairs;
+    g_partnersData = null; // 다음 조회 시 새로 불러오도록 초기화
+    showToast('저장되었습니다 · '+pairs.length+'명');
+    showParticipantsPopup();
+  }catch(e){
+    alert('저장 중 오류: '+e.message);
+    renderAdminRows();
+  }
+}
+
 function showParticipantsPopup(){
   // 모달 먼저 열기 (캐시 유무 관계없이)
   openModal('참여인원 & 짝꿍 명단','<div style="text-align:center;padding:32px"><div class="spinner"></div><div style="margin-top:12px;color:var(--muted)">불러오는 중...</div></div>');
@@ -2433,8 +2745,9 @@ function renderPartnersPopup(table){
       +'</div>';
   });
   if(!html)html='<div style="text-align:center;padding:32px;color:var(--muted)">데이터를 불러올 수 없어요</div>';
+  var adminBtn = isAdmin() ? '<button onclick="openParticipantsAdmin()" style="width:100%;margin-bottom:12px;padding:11px;border-radius:12px;border:1px solid rgba(0,229,160,.35);background:rgba(0,229,160,.1);color:var(--accent);font-family:\'Noto Sans KR\',sans-serif;font-size:13px;font-weight:700;cursor:pointer">✏️ 참여인원·짝꿍 수정</button>' : '';
   document.getElementById('modalTitle').textContent='참여인원 & 짝꿍 명단 · '+count+'명';
-  document.getElementById('modalBody').innerHTML=html;
+  document.getElementById('modalBody').innerHTML=adminBtn+html;
 }
 function findCol(cols,keywords){
   return cols.findIndex(function(c){return c&&c.label&&keywords.some(function(k){return c.label.includes(k);});});
