@@ -2715,9 +2715,10 @@ async function saveParticipantsAdmin(){
   document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div><div style="margin-top:12px;color:var(--muted)">저장 중...</div></div>';
   dbg('저장 요청: '+pairs.length+'명 → '+JSON.stringify(pairs).slice(0,300),'ok');
 
-  // 응답을 못 받았거나 파싱 실패 시, 실제 시트를 재조회해서 저장 성공 여부 확인
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  // 실제 시트를 재조회해서 저장 성공 여부 확인 (지연 없이 즉시 조회)
   async function verifySaved(){
-    await new Promise(function(r){ setTimeout(r, 1500); });
     try{
       var vres = await fetch(DRIVE_SCRIPT_URL, {
         method:'POST',
@@ -2726,7 +2727,7 @@ async function saveParticipantsAdmin(){
       var vj = await vres.json();
       return !!(vj.success && vj.pairs && vj.pairs.length === pairs.length);
     }catch(e2){
-      dbg('재확인 요청도 실패: '+e2.message,'err');
+      dbg('재확인 요청 실패: '+e2.message,'err');
       return false;
     }
   }
@@ -2739,43 +2740,79 @@ async function saveParticipantsAdmin(){
     showParticipantsPopup();
   }
 
-  try{
-    var res = await fetch(DRIVE_SCRIPT_URL, {
-      method:'POST',
-      body: JSON.stringify({action:'saveParticipants', pairs:pairs})
-    });
-    var rawText = await res.text();
-    var j;
-    try{
-      j = JSON.parse(rawText);
-    }catch(parseErr){
-      dbg('⚠️ 응답이 JSON 아님(status:'+res.status+') - 실제 저장 여부 재확인 중...','warn');
-      if(await verifySaved()){
-        dbg('✅ 재확인 결과 저장 정상 반영됨','ok');
-        onConfirmedSaved();
-        return;
-      }
-      dbg('❌ 재확인해도 저장 미반영 - body(앞200자):'+rawText.slice(0,200),'err');
-      alert('저장 결과를 확인할 수 없습니다.\n구글시트를 직접 확인해보시고, 반영 안 됐으면 다시 시도해주세요.\n(HTTP '+res.status+')');
+  var T0 = Date.now();
+  var savePromise = fetch(DRIVE_SCRIPT_URL, {
+    method:'POST',
+    body: JSON.stringify({action:'saveParticipants', pairs:pairs})
+  }).then(function(res){ return res.text().then(function(t){ return {status:res.status, text:t}; }); })
+    .catch(function(e){ return {error:e}; });
+
+  // 원본 응답과 2.5초 타임아웃 중 먼저 오는 쪽 사용 (느린 응답을 무작정 기다리지 않음)
+  var result = await Promise.race([
+    savePromise.then(function(r){ return {kind:'response', r:r}; }),
+    sleep(2500).then(function(){ return {kind:'timeout'}; })
+  ]);
+
+  if(result.kind === 'timeout'){
+    dbg('⏱️ 2.5초 내 응답 없음 - 즉시 재확인 (원본 요청은 백그라운드 계속 진행)','warn');
+    if(await verifySaved()){
+      dbg('✅ 재확인 결과 저장 정상 반영됨 ('+(Date.now()-T0)+'ms)','ok');
+      onConfirmedSaved();
+      return;
+    }
+    // 재확인도 실패면 원본 응답을 잠깐 더 기다려봄 (최대 3초 추가)
+    var late = await Promise.race([savePromise.then(function(r){return {kind:'response', r:r};}), sleep(3000).then(function(){return {kind:'timeout'};})]);
+    if(late.kind === 'response' && late.r && !late.r.error){
+      result = late;
+    } else {
+      alert('저장 결과를 확인할 수 없습니다.\n구글시트를 직접 확인해보시고, 반영 안 됐으면 다시 시도해주세요.');
       renderAdminRows();
       return;
     }
-    if(!j.success){
-      alert('저장 실패: '+(j.error||'알 수 없는 오류'));
-      renderAdminRows();
-      return;
-    }
-    onConfirmedSaved();
-  }catch(e){
-    dbg('❌ saveParticipantsAdmin 네트워크 오류: '+e.message+' - 실제 저장 여부 재확인 중...','warn');
+  }
+
+  var r = result.r;
+  if(r.error){
+    dbg('❌ 네트워크 오류: '+r.error.message+' - 재확인 중...','warn');
     if(await verifySaved()){
       dbg('✅ 재확인 결과 저장 정상 반영됨','ok');
       onConfirmedSaved();
       return;
     }
-    alert('저장 중 오류: '+e.message);
+    alert('저장 중 오류: '+r.error.message);
     renderAdminRows();
+    return;
   }
+
+  var j;
+  try{ j = JSON.parse(r.text); }
+  catch(parseErr){
+    dbg('⚠️ 응답이 JSON 아님(status:'+r.status+') - 재확인 중...','warn');
+    if(await verifySaved()){
+      dbg('✅ 재확인 결과 저장 정상 반영됨','ok');
+      onConfirmedSaved();
+      return;
+    }
+    dbg('❌ 재확인해도 저장 미반영 - body(앞200자):'+r.text.slice(0,200),'err');
+    alert('저장 결과를 확인할 수 없습니다.\n구글시트를 직접 확인해보시고, 반영 안 됐으면 다시 시도해주세요.\n(HTTP '+r.status+')');
+    renderAdminRows();
+    return;
+  }
+
+  if(!j.success){
+    dbg('⚠️ 서버가 success:false 응답 - 재확인 중... error:'+(j.error||'(없음)'),'warn');
+    if(await verifySaved()){
+      dbg('✅ 재확인 결과 저장 정상 반영됨 (서버 응답과 무관하게 실제로는 성공)','ok');
+      onConfirmedSaved();
+      return;
+    }
+    alert('저장 실패: '+(j.error||'알 수 없는 오류'));
+    renderAdminRows();
+    return;
+  }
+
+  dbg('저장 완료 ('+(Date.now()-T0)+'ms)','ok');
+  onConfirmedSaved();
 }
 
 function showParticipantsPopup(){
