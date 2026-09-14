@@ -2705,24 +2705,65 @@ async function saveParticipantsAdmin(){
   pairs.sort(function(a,b){ return a.name.localeCompare(b.name,'ko'); });
 
   document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:32px"><div class="spinner"></div><div style="margin-top:12px;color:var(--muted)">저장 중...</div></div>';
+  dbg('저장 요청: '+pairs.length+'명 → '+JSON.stringify(pairs).slice(0,300),'ok');
+
+  // 응답을 못 받았거나 파싱 실패 시, 실제 시트를 재조회해서 저장 성공 여부 확인
+  async function verifySaved(){
+    await new Promise(function(r){ setTimeout(r, 1500); });
+    try{
+      var vres = await fetch(DRIVE_SCRIPT_URL, {
+        method:'POST',
+        body: JSON.stringify({action:'listParticipants'})
+      });
+      var vj = await vres.json();
+      return !!(vj.success && vj.pairs && vj.pairs.length === pairs.length);
+    }catch(e2){
+      dbg('재확인 요청도 실패: '+e2.message,'err');
+      return false;
+    }
+  }
+
+  function onConfirmedSaved(){
+    g_namePairs = pairs;
+    g_partnersData = null;
+    showToast('저장되었습니다 · '+pairs.length+'명');
+    showParticipantsPopup();
+  }
 
   try{
     var res = await fetch(DRIVE_SCRIPT_URL, {
       method:'POST',
       body: JSON.stringify({action:'saveParticipants', pairs:pairs})
     });
-    var j = await res.json();
+    var rawText = await res.text();
+    var j;
+    try{
+      j = JSON.parse(rawText);
+    }catch(parseErr){
+      dbg('⚠️ 응답이 JSON 아님(status:'+res.status+') - 실제 저장 여부 재확인 중...','warn');
+      if(await verifySaved()){
+        dbg('✅ 재확인 결과 저장 정상 반영됨','ok');
+        onConfirmedSaved();
+        return;
+      }
+      dbg('❌ 재확인해도 저장 미반영 - body(앞200자):'+rawText.slice(0,200),'err');
+      alert('저장 결과를 확인할 수 없습니다.\n구글시트를 직접 확인해보시고, 반영 안 됐으면 다시 시도해주세요.\n(HTTP '+res.status+')');
+      renderAdminRows();
+      return;
+    }
     if(!j.success){
       alert('저장 실패: '+(j.error||'알 수 없는 오류'));
       renderAdminRows();
       return;
     }
-    // 로컬 캐시 갱신
-    g_namePairs = pairs;
-    g_partnersData = null; // 다음 조회 시 새로 불러오도록 초기화
-    showToast('저장되었습니다 · '+pairs.length+'명');
-    showParticipantsPopup();
+    onConfirmedSaved();
   }catch(e){
+    dbg('❌ saveParticipantsAdmin 네트워크 오류: '+e.message+' - 실제 저장 여부 재확인 중...','warn');
+    if(await verifySaved()){
+      dbg('✅ 재확인 결과 저장 정상 반영됨','ok');
+      onConfirmedSaved();
+      return;
+    }
     alert('저장 중 오류: '+e.message);
     renderAdminRows();
   }
