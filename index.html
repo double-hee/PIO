@@ -1122,7 +1122,7 @@ function loadFromCache(){
     g_elapsed       = obj.elapsed;
     g_todayStr      = obj.todayStr;
     g_todayEntries  = obj.todayEntries;
-    document.getElementById('statPeople').textContent = allParticipants.length;
+    updateStatPeople(); // 등록 인원(짝꿍 명단) 기준으로 표시
     document.getElementById('statToday').textContent  = g_todayEntries.length;
     // 단, 오늘 날짜가 바뀌었으면 캐시 무효
     var realToday = (function(){var d=new Date();return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();})();
@@ -1338,7 +1338,7 @@ function processSheetData(table){
   dbg('정렬 완료','ok');
 
   // 요약 스탯
-  try { document.getElementById('statPeople').textContent=allParticipants.length; } catch(e){}
+  try { updateStatPeople(); } catch(e){} // 등록 인원(짝꿍 명단) 기준으로 표시
   dbg('statPeople 업데이트 완료','ok');
 
   // 오늘 인증 항목 정렬 + 중복 제거 (첫 제출 기준)
@@ -2292,6 +2292,14 @@ function showDriveStatus(msg, autoHide){
 var g_namePairs = null; // [{name, partner}]
 var g_namePairsLoading = null;
 
+// 참여 인원 수 표시 갱신 (등록된 짝꿍 명단 기준 - 인증 제출 여부와 무관)
+function updateStatPeople(){
+  getNamePairs().then(function(pairs){
+    var el = document.getElementById('statPeople');
+    if(el) el.textContent = pairs.length;
+  });
+}
+
 function getNamePairs(){
   if(g_namePairs) return Promise.resolve(g_namePairs);
   if(g_namePairsLoading) return g_namePairsLoading;
@@ -2726,6 +2734,7 @@ async function saveParticipantsAdmin(){
   function onConfirmedSaved(){
     g_namePairs = pairs;
     g_partnersData = null;
+    updateStatPeople();
     showToast('저장되었습니다 · '+pairs.length+'명');
     showParticipantsPopup();
   }
