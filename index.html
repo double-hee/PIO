@@ -1044,10 +1044,12 @@ async function submitCert(){
   if(!dv){showCertStatus('err','📅 날짜를 선택해주세요.');return;}
   if(!nv){showCertStatus('err','✏️ 이름을 입력해주세요.');return;}
   if(!g_dataReady){showCertStatus('err','⏳ 참여자 데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');return;}
-  if(g_myName && g_partnerName){
-    if(nv !== g_myName && nv !== g_partnerName){
-      flashCertBtnError('내 이름/짝꿍만 가능');
-      showCertStatus('err','⛔ 내 이름('+g_myName+') 또는 짝꿍('+g_partnerName+')만 인증 가능합니다.');
+  if(g_myName){
+    var allowed = [g_myName];
+    if(g_partnerName) allowed.push(g_partnerName);
+    if(allowed.indexOf(nv) === -1){
+      flashCertBtnError(g_partnerName ? '내 이름/짝꿍만 가능' : '내 이름만 가능');
+      showCertStatus('err','⛔ 내 이름('+g_myName+')'+(g_partnerName?' 또는 짝꿍('+g_partnerName+')':'')+'만 인증 가능합니다.');
       return;
     }
   }
@@ -2415,13 +2417,13 @@ function updateSettingsBtnState(){
   var btn = document.getElementById('settingsBtn');
   var certName = document.getElementById('certName');
   var certBtn = document.getElementById('certBtn');
-  var bothSet = g_myName && g_partnerName;
+  var mySet = !!g_myName; // 짝꿍은 없어도 됨 - 내 이름만 있으면 인증 가능
   if(certName){
-    certName.disabled = !bothSet;
-    certName.placeholder = bothSet ? '홍길동' : '설정에서 이름 등록';
+    certName.disabled = !mySet;
+    certName.placeholder = mySet ? '홍길동' : '설정에서 이름 등록';
   }
   if(certBtn){
-    if(!bothSet){
+    if(!mySet){
       certBtn.disabled = true;
       certBtn.style.opacity = '0.5';
       certBtn.style.cursor = 'not-allowed';
@@ -2433,7 +2435,7 @@ function updateSettingsBtnState(){
     }
   }
   if(!btn) return;
-  if(!bothSet){
+  if(!mySet){
     btn.classList.add('needs-setup');
     btn.innerHTML = '<span>👤</span> 내이름·짝꿍등록';
   } else {
