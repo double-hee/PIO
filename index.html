@@ -1158,7 +1158,9 @@ function clearCache(){
 // 폼 응답 시트 판별: 이름 컬럼이 문자열이고 날짜 컬럼이 있어야 함
 function isFormResponseSheet(table) {
   var cols = table.cols, rows = table.rows;
-  if (!rows || rows.length < 5) return false;
+  if (!rows) return false;
+  // 데이터가 적은 신규 시트: 세부 검증 없이 통과 (컬럼 타입은 빈 셀에서 신뢰 불가)
+  if (rows.length < 5) return true;
   // date 타입 컬럼이 있어야 함
   var hasDate = cols.some(function(c){ return c && c.type === 'date'; });
   if (!hasDate) return false;
