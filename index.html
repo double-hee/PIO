@@ -355,13 +355,21 @@
           </div>
           <div style="flex:1;min-width:0">
             <div class="flabel">이름<span class="freq">*</span></div>
-            <input type="text" id="certName" class="cinput" placeholder="설정에서 이름 등록" maxlength="20" disabled/>
+            <select id="certName" class="cinput" disabled></select>
           </div>
         </div>
-        <div class="rest-row" id="restRow" onclick="toggleRest()">
-          <div class="rest-cb" id="restCb"><span class="rest-ci">✓</span></div>
-          <div>
-            <div class="rest-title" style="font-size:15px">🎫 휴식권 사용</div>
+        <div style="display:flex;gap:8px">
+          <div class="rest-row" id="restRow" onclick="toggleRest()" style="flex:1">
+            <div class="rest-cb" id="restCb"><span class="rest-ci">✓</span></div>
+            <div>
+              <div class="rest-title" style="font-size:14px">🎫 휴식권</div>
+            </div>
+          </div>
+          <div class="rest-row" id="bkRow" onclick="toggleBlackKnight()" style="flex:1">
+            <div class="rest-cb" id="bkCb"><span class="rest-ci">✓</span></div>
+            <div>
+              <div class="rest-title" style="font-size:14px">🥷 흑기사권</div>
+            </div>
           </div>
         </div>
         <button class="cbtn" id="certBtn" onclick="submitCert()"><span>💪</span> 인증 제출하기</button>
@@ -432,6 +440,7 @@
       </div></div>
       <div class="rule-item"><div class="rule-dot"></div>운동 후 <b>짝꿍 태그</b>하여 셀카/영상 채팅방 업로드</div>
       <div class="rule-item"><div class="rule-dot"></div><b>1회 휴식권</b> 사용 가능 (짝꿍 허락 필요. 단 1번 사용 가능)</div>
+      <div class="rule-item"><div class="rule-dot"></div><b>1회 흑기사권</b> 사용 가능 — 짝꿍이 나 대신 오늘 실시(대신 운동)해준 경우 신청. 신청자는 "신청", 짝꿍은 "실시"로 기록됨 (짝꿍 허락 필요, 단 1번)</div>
     </div>
   </div>
 
@@ -724,6 +733,7 @@ function switchTab(tab) {
       }
     }
     checkAlreadyCertified(); // 최신 날짜 기준 인증완료 여부 재확인
+    populateCertNameOptions(); // 이름 목록도 최신으로 (관리자는 전체 참여자 갱신)
 
     // g_partnerName도 최신 참여인원 명단 기준으로 갱신 (인증 검증 로직에 사용됨)
     if(g_myName){
@@ -1022,6 +1032,16 @@ document.getElementById('certName').addEventListener('change',function(){
   if(desc)  desc.textContent='짝꿍 허락 후 짝꿍이 대신 인증하는 경우에만 체크 · 100일 동안 1회 허용!';
   row.classList.remove('checked'); cb.classList.remove('checked'); restChecked=false;
   updateCertRestStatus();
+
+  var bkRow=document.getElementById('bkRow'), bkCb=document.getElementById('bkCb');
+  if(bkRow && bkCb){
+    bkRow.style.opacity=''; bkRow.style.cursor='';
+    bkCb.style.background=''; bkCb.style.borderColor='';
+    var bkTitle=bkRow.querySelector('.rest-title');
+    if(bkTitle) bkTitle.textContent='🥷 흑기사권';
+    bkRow.classList.remove('checked'); bkCb.classList.remove('checked'); blackKnightChecked=false;
+  }
+  updateCertBlackKnightStatus();
 });
 
 /* ── 휴식권 상태 ── */
@@ -1059,6 +1079,7 @@ function toggleRest() {
   if (g_restUsed) {
     return; // 휴식권 행에 이미 안내 표시됨
   }
+  if(blackKnightChecked){ showToast('휴식권과 흑기사권은 동시에 사용할 수 없어요.'); return; }
   if(!restChecked){
     // 체크하려는 경우 확인
     if(!confirm('짝꿍 허락 후 사용! 100일 동안 단 1회 허용!\n\n정말 사용하시겠습니까?')) return;
@@ -1069,6 +1090,46 @@ function toggleRest() {
   restChecked=!restChecked;
   document.getElementById('restRow').classList.toggle('checked',restChecked);
   document.getElementById('restCb').classList.toggle('checked',restChecked);
+}
+
+/* ── 흑기사권 상태 ── */
+var blackKnightChecked = false;
+var g_blackKnightUsed  = false; // 현재 사용자(신청자로서) 흑기사권 사용 여부
+var g_blackKnightDate  = null;
+
+function updateCertBlackKnightStatus(){
+  var name = (localStorage.getItem('pio_name') || '').trim();
+  if (!name || !allParticipants.length) return;
+  var p = allParticipants.find(function(x){ return x.name === name; });
+  if (!p) return;
+  g_blackKnightUsed = !!p.blackKnightUsed;
+  g_blackKnightDate = p.blackKnightDate || null;
+  if (g_blackKnightUsed) applyBlackKnightDisabled();
+}
+
+function applyBlackKnightDisabled(){
+  var row = document.getElementById('bkRow');
+  var cb  = document.getElementById('bkCb');
+  if(!row || !cb) return;
+  row.style.opacity = '0.45';
+  row.style.cursor  = 'not-allowed';
+  cb.style.background = '#333';
+  cb.style.borderColor = '#444';
+  var title = row.querySelector('.rest-title');
+  if (title) title.textContent = '🥷 흑기사권 사용 불가';
+}
+
+function toggleBlackKnight(){
+  if (g_blackKnightUsed) return; // 흑기사권 행에 이미 안내 표시됨
+  if(restChecked){ showToast('휴식권과 흑기사권은 동시에 사용할 수 없어요.'); return; }
+  if(!blackKnightChecked){
+    if(!confirm('짝꿍 허락 필요! 짝꿍 운동 실시 확인 후 체크할 것! 100일 중 1번 사용 가능!\n\n정말 사용하시겠습니까?')) return;
+  } else {
+    showToast('흑기사권 사용이 취소되었습니다.');
+  }
+  blackKnightChecked = !blackKnightChecked;
+  document.getElementById('bkRow').classList.toggle('checked', blackKnightChecked);
+  document.getElementById('bkCb').classList.toggle('checked', blackKnightChecked);
 }
 
 // 간단한 토스트 알림
@@ -1164,7 +1225,9 @@ async function submitCert(){
   if(!nv){showCertStatus('err','✏️ 이름을 입력해주세요.');return;}
   if(!g_dataReady){showCertStatus('err','⏳ 참여자 데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');return;}
   var trustedByMyName = false;
-  if(g_myName){
+  if(isAdmin()){
+    trustedByMyName = true; // 관리자는 전체 참여자 중 누구든 선택 가능
+  } else if(g_myName){
     var allowed = [g_myName];
     if(g_partnerName) allowed.push(g_partnerName);
     if(allowed.indexOf(nv) === -1){
@@ -1208,7 +1271,7 @@ async function submitCert(){
   try{
     var res = await fetch(DRIVE_SCRIPT_URL, {
       method:'POST',
-      body: JSON.stringify({action:'submitCert', name:nv, year:year, month:month, day:day, rest:restChecked})
+      body: JSON.stringify({action:'submitCert', name:nv, year:year, month:month, day:day, rest:restChecked, blackKnight:blackKnightChecked})
     });
     var j = await res.json();
     if(!j.success){
@@ -1224,13 +1287,26 @@ async function submitCert(){
 
   clearCache();
   localStorage.setItem('pio_name',nv);
-  showCertStatus('ok','✅ 인증 완료! 오늘도 고생하셨어요 💪');
+  var usedBK = blackKnightChecked;
+  var bkPartner = usedBK ? (g_partnerName || null) : null;
+  showCertStatus('ok', usedBK
+    ? '✅ 흑기사권 신청 완료! ('+ (bkPartner||'짝꿍') +'님이 대신 실시로 기록됩니다)'
+    : '✅ 인증 완료! 오늘도 고생하셨어요 💪');
 
   var found2=allParticipants.find(function(p){return p.name===nv;});
   if(found2){
     if(!found2.byDate) found2.byDate={};
-    found2.byDate[dateKey]=!!restChecked;
+    found2.byDate[dateKey]= usedBK ? 'bk-apply' : !!restChecked;
   }
+  if(usedBK && bkPartner){
+    var partnerP = allParticipants.find(function(p){return p.name===bkPartner;});
+    if(partnerP){
+      if(!partnerP.byDate) partnerP.byDate={};
+      partnerP.byDate[dateKey]='bk-perform';
+    }
+  }
+  // 제출 후 체크 상태 초기화
+  restChecked=false; blackKnightChecked=false;
   dbg('제출 완료 - 로컬 데이터 즉시 반영: '+nv+' '+dateKey,'ok');
   checkAlreadyCertified();
 }
@@ -1258,7 +1334,7 @@ function loadFromCache(){
     // 단, 오늘 날짜가 바뀌었으면 캐시 무효
     var realToday = (function(){var d=new Date();return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();})();
     if(realToday !== obj.todayStr){ sessionStorage.removeItem(CACHE_KEY); return false; }
-    renderChart(); renderTable(); updateCertRestStatus();
+    renderChart(); renderTable(); updateCertRestStatus(); updateCertBlackKnightStatus();
     setDataReady(true);
     updatePartnerTodayStatus(); // 짝꿍 오늘 인증 여부 갱신
     var n=new Date(); document.getElementById('lastUpdated').textContent='캐시: '+n.getHours()+':'+String(n.getMinutes()).padStart(2,'0');
@@ -1422,22 +1498,27 @@ function processSheetData(table){
     var dateStr=parseDate(dc); if(!dateStr)return;
     // 챌린지 기간(6/3 ~ 오늘) 밖의 날짜는 무시
     if(!isInRange(dateStr,start,today))return;
-    var isRest=!!(rc&&rc.v&&String(rc.v).includes('휴식권'));
+    var restText = rc && rc.v ? String(rc.v) : '';
+    var isRest=!!restText.includes('휴식권');
+    var isBkApply=!!restText.includes('흑기사신청');
+    var isBkPerform=!!restText.includes('흑기사실시');
+    // byDate에 저장할 값: 실시=false, 휴식/흑기사류=문자열 마커(truthy 유지)
+    var dayVal = isBkApply ? 'bk-apply' : isBkPerform ? 'bk-perform' : isRest ? true : false;
 
     // 오늘 날짜 항목 시간순 수집
     if(dateStr===g_todayStr){
       var tsCell=cells[tsCol>=0?tsCol:0];
       var tsDate=parseTsDate(tsCell);
       var timeStr=formatTime(tsDate);
-      rawTodayEntries.push({name:name,timeStr:timeStr,tsMs:tsDate?tsDate.getTime():0,isRest:isRest});
+      rawTodayEntries.push({name:name,timeStr:timeStr,tsMs:tsDate?tsDate.getTime():0,isRest:isRest||isBkApply||isBkPerform});
     }
 
     parseOk++;
     if(!personMap[name])personMap[name]={name:name,byDate:{}};
     var p=personMap[name];
-    // 같은 날 중복 제출 처리: 실시가 우선
-    if(!p.byDate.hasOwnProperty(dateStr)){p.byDate[dateStr]=isRest;}
-    else if(p.byDate[dateStr]===true&&!isRest){p.byDate[dateStr]=false;} // 실시로 덮어씀
+    // 같은 날 중복 제출 처리: 실시(false)가 우선
+    if(!p.byDate.hasOwnProperty(dateStr)){p.byDate[dateStr]=dayVal;}
+    else if(p.byDate[dateStr]!==false && dayVal===false){p.byDate[dateStr]=false;} // 실시로 덮어씀
   });
 
   } catch(e){ dbg('❌ 행 파싱 오류: '+e.message+' (stack: '+e.stack.split('\n')[0]+')','err'); }
@@ -1446,11 +1527,14 @@ function processSheetData(table){
   // 참가자별 통계 계산
   allParticipants=Object.values(personMap).map(function(p){
     var dates=Object.keys(p.byDate);
-    var workoutDates=dates.filter(function(d){return!p.byDate[d];});
-    var restDates=dates.filter(function(d){return p.byDate[d];});
-    var wc=workoutDates.length, rc=Math.min(restDates.length,1);
-    var total=wc+rc;                                            // 종합 = 실시 + 유효휴식권
-    var missed=Math.max(0,g_elapsed-wc);                        // 미실시 = elapsed - 실시 (휴식권도 미실시)
+    var workoutDates=dates.filter(function(d){return p.byDate[d]===false;});
+    var restDates=dates.filter(function(d){return p.byDate[d]===true;});           // 순수 휴식권만
+    var bkApplyDates=dates.filter(function(d){return p.byDate[d]==='bk-apply';});   // 흑기사 신청(본인이 받음)
+    var bkPerformDates=dates.filter(function(d){return p.byDate[d]==='bk-perform';}); // 흑기사 실시(짝꿍 대신 해줌)
+    var wc=workoutDates.length;
+    var rc=Math.min(restDates.length,1)+Math.min(bkApplyDates.length,1)+Math.min(bkPerformDates.length,1);
+    var total=wc+rc;                                            // 종합 = 실시 + 유효휴식/흑기사
+    var missed=Math.max(0,g_elapsed-wc);                        // 미실시 = elapsed - 실시
     var pct=g_elapsed>0?Math.round(wc/g_elapsed*100):0;         // % = 실시/elapsed (실시 기준)
     var sorted=dates.slice().sort(function(a,b){
       var pa=a.split('/').map(Number),pb=b.split('/').map(Number);
@@ -1459,7 +1543,11 @@ function processSheetData(table){
     var lastDate=sorted.length?formatDisp(sorted[sorted.length-1]):'-';
     var todayDone=p.byDate.hasOwnProperty(g_todayStr);
     var restDate = restDates.length > 0 ? formatDisp(restDates.sort(function(a,b){var pa=a.split('/').map(Number),pb=b.split('/').map(Number);return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);})[0]) : null;
-    return{name:p.name,total:total,workout:wc,rest:rc,restUsed:restDates.length>0,restDate:restDate,missed:missed,pct:pct,lastDate:lastDate,todayDone:todayDone,byDate:p.byDate};
+    var blackKnightDate = bkApplyDates.length > 0 ? formatDisp(bkApplyDates.sort(function(a,b){var pa=a.split('/').map(Number),pb=b.split('/').map(Number);return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);})[0]) : null;
+    return{name:p.name,total:total,workout:wc,rest:rc,restUsed:restDates.length>0,restDate:restDate,
+      blackKnightUsed:bkApplyDates.length>0,blackKnightDate:blackKnightDate,
+      blackKnightApplyDates:bkApplyDates,blackKnightPerformDates:bkPerformDates,
+      missed:missed,pct:pct,lastDate:lastDate,todayDone:todayDone,byDate:p.byDate};
   });
 
   dbg('참가자 통계 계산 완료: '+allParticipants.length+'명','ok');
@@ -1491,7 +1579,7 @@ function processSheetData(table){
   // 차트/테이블 렌더링은 비동기로 (UI 차단 방지)
   try { renderChart(); } catch(e){ dbg('renderChart 오류: '+e.message,'err'); }
   try { renderTable(); } catch(e){ dbg('renderTable 오류: '+e.message,'err'); }
-  try { updateCertRestStatus(); } catch(e){ dbg('updateCertRestStatus 오류: '+e.message,'err'); }
+  try { updateCertRestStatus(); updateCertBlackKnightStatus(); } catch(e){ dbg('updateCertRestStatus 오류: '+e.message,'err'); }
   // 예약된 개인조회 실행
   if(g_pendingPersonalSearch){
     g_pendingPersonalSearch = false;
@@ -1562,9 +1650,10 @@ function renderTable(){
     var rankDisp  = rank; // 항상 숫자
     var rankStyle = rank<=3 ? 'font-size:13px;font-weight:700' : 'color:var(--muted);font-size:12px';
     var nameMedal = isAllDone ? ' <span style="font-size:14px">🏅</span>' : '';
+    var nameBK = p.blackKnightUsed ? ' <span style="font-size:12px" title="흑기사권 신청 사용">🥷</span>' : '';
     return '<tr class="'+rowCls+'">'
       +'<td style="text-align:center;'+rankStyle+'">'+rankDisp+'</td>'
-      +'<td class="col-name">'+p.name+nameMedal+'</td>'
+      +'<td class="col-name">'+p.name+nameMedal+nameBK+'</td>'
       +'<td>'+p.total+'</td>'
       +'<td>'+p.workout+'</td>'
       +'<td>'+p.missed+'</td>'
@@ -1611,9 +1700,11 @@ async function searchPersonal(){
     var ds=d2s(d);
     var isDone=p.byDate.hasOwnProperty(ds);
     var isRest=isDone&&p.byDate[ds]===true;
-    var isWorkout=isDone&&!isRest;
+    var isBkApply=isDone&&p.byDate[ds]==='bk-apply';
+    var isBkPerform=isDone&&p.byDate[ds]==='bk-perform';
+    var isWorkout=isDone&&!isRest&&!isBkApply&&!isBkPerform;
     var isTday=ds===g_todayStr;
-    rows.push({ds:ds,disp:formatDisp(ds),isDone:isDone,isRest:isRest,isWorkout:isWorkout,isToday:isTday});
+    rows.push({ds:ds,disp:formatDisp(ds),isDone:isDone,isRest:isRest,isBkApply:isBkApply,isBkPerform:isBkPerform,isWorkout:isWorkout,isToday:isTday});
     d.setDate(d.getDate()+1);
   }
 
@@ -1629,11 +1720,15 @@ async function searchPersonal(){
     var rowClick = hasPhoto
       ? 'style="cursor:pointer" data-key="'+photoKey+'" onclick="onPhotoRowTap(event,this)"'
       : '';
+    var restCellHtml = r.isRest ? '<span class="rest-mark">휴식권</span>'
+      : r.isBkApply ? '<span class="rest-mark" style="color:#b39cff">🥷흑기사 신청</span>'
+      : r.isBkPerform ? '<span class="rest-mark" style="color:#00b8ff">🥷흑기사 실시</span>'
+      : '';
     return '<tr class="'+cls+'" '+rowClick+'>'
       +'<td>'+r.disp+'</td>'
       +photoCell
       +'<td>'+(r.isWorkout?'<span class="done-mark">실시</span>':'')+'</td>'
-      +'<td>'+(r.isRest?'<span class="rest-mark">휴식권</span>':'')+'</td>'
+      +'<td>'+restCellHtml+'</td>'
       +'</tr>';
   }).join('');
 
@@ -2587,6 +2682,35 @@ function applyMyName(){
 }
 
 // 이름 미설정 시 설정 버튼 깜빡이며 강조 + 인증 이름 입력/제출 잠금
+// 운동인증 이름 드롭다운 채우기: 일반 사용자는 나/짝꿍만, 관리자는 전체 참여자
+async function populateCertNameOptions(){
+  var sel = document.getElementById('certName');
+  if(!sel || !g_myName) return;
+  var prevValue = sel.value;
+
+  var names;
+  if(isAdmin()){
+    var pairs = await getNamePairs();
+    names = pairs.map(function(p){ return p.name; });
+  } else {
+    names = [g_myName];
+    if(g_partnerName) names.push(g_partnerName);
+  }
+
+  sel.innerHTML = names.map(function(n){
+    return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>';
+  }).join('');
+
+  // 이전 선택값 유지, 없으면 내 이름으로
+  if(names.indexOf(prevValue) >= 0){
+    sel.value = prevValue;
+  } else if(names.indexOf(g_myName) >= 0){
+    sel.value = g_myName;
+  }
+  // change 이벤트 강제 트리거 (사진섹션/인증완료 상태 등 동기화)
+  sel.dispatchEvent(new Event('change'));
+}
+
 function updateSettingsBtnState(){
   var btn = document.getElementById('settingsBtn');
   var certName = document.getElementById('certName');
@@ -2594,7 +2718,7 @@ function updateSettingsBtnState(){
   var mySet = !!g_myName; // 짝꿍은 없어도 됨 - 내 이름만 있으면 인증 가능
   if(certName){
     certName.disabled = !mySet;
-    certName.placeholder = mySet ? '홍길동' : '설정에서 이름 등록';
+    populateCertNameOptions();
   }
   if(certBtn){
     if(!mySet){
