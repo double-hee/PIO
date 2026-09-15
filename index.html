@@ -54,7 +54,7 @@
     .today-card.pushup .today-ex{color:var(--accent);} .today-card.lunge .today-ex{color:var(--accent2);} .today-card.done .today-ex{color:var(--muted);font-size:18px;}
     .today-cnt{font-size:12px;color:var(--muted);} .today-cnt b{color:var(--text);}
     .today-day-badge{flex-shrink:0;text-align:right;}
-    .today-day-num{font-size:36px;font-weight:100;line-height:1;color:var(--muted);}
+    .today-day-num{font-size:36px;font-weight:700;line-height:1;color:var(--accent2);}
     .today-day-lbl{font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
 
     /* CERT FORM */
@@ -325,15 +325,15 @@
 <div class="page active" id="page-cert">
   <div class="today-section">
     <div class="today-card" id="todayCard">
-      <div class="today-big-emoji" id="todayEmoji">⏳</div>
-      <div class="today-info">
-        <div class="today-meta" id="todayMeta">오늘의 운동</div>
-        <div class="today-ex"   id="todayEx">로딩 중...</div>
-        <div class="today-cnt"  id="todayCnt"></div>
-      </div>
-      <div class="today-day-badge">
+      <div class="today-day-badge" id="todayDayBadge" style="flex-shrink:0;text-align:center;width:64px">
         <div class="today-day-num" id="todayDayNum">-</div>
         <div class="today-day-lbl">일차</div>
+      </div>
+      <div class="today-info" style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+        <div class="today-meta" id="todayMeta" style="margin:0">오늘의 운동</div>
+        <div class="today-ex" id="todayEx" style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">로딩 중...</div>
+        <div id="todayExAlt" style="font-size:12px;color:var(--muted)"></div>
+        <div id="todayPartnerStatus" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
       </div>
     </div>
   </div>
@@ -590,14 +590,16 @@ function initPhotoDB(){
 
 function savePhotoDB(key, files){
   return new Promise(function(resolve){
-    if(!g_photoDB || !files.length){ resolve(); return; }
+    if(!g_photoDB){ dbg('⚠️ savePhotoDB 실패: IndexedDB 미초기화 (key='+key+')','err'); resolve(); return; }
+    if(!files.length){ resolve(); return; }
     try {
       var blobs = files.map(function(f){ return f.slice(0, f.size, f.type); });
       var tx = g_photoDB.transaction('photos','readwrite');
       tx.objectStore('photos').put(blobs, key);
-      tx.oncomplete = function(){ resolve(); };
-      tx.onerror = function(){ resolve(); };
-    } catch(e){ resolve(); }
+      tx.oncomplete = function(){ dbg('✅ IndexedDB 저장 완료: '+key+' ('+blobs.length+'장)','ok'); resolve(); };
+      tx.onerror = function(){ dbg('❌ IndexedDB 저장 실패(tx.onerror): '+key+' - '+(tx.error&&tx.error.message),'err'); resolve(); };
+      tx.onabort = function(){ dbg('❌ IndexedDB 저장 중단(tx.onabort): '+key,'err'); resolve(); };
+    } catch(e){ dbg('❌ savePhotoDB 예외: '+e.message,'err'); resolve(); }
   });
 }
 
@@ -726,17 +728,71 @@ function switchSub(s) {
 }
 
 /* ── 오늘의 운동 ── */
+function formatTodayDateStr(d){
+  return (d.getMonth()+1)+'월 '+d.getDate()+'일';
+}
 (function(){
   var start=new Date('2026-09-15T00:00:00');
   var today=new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   var dayNum=Math.floor((today-start)/86400000)+1;
-  var card=document.getElementById('todayCard'), emoji=document.getElementById('todayEmoji'),
+  var card=document.getElementById('todayCard'),
       meta=document.getElementById('todayMeta'), exEl=document.getElementById('todayEx'),
-      cnt=document.getElementById('todayCnt'),   dayEl=document.getElementById('todayDayNum');
-  if(dayNum<1){card.className='today-card done';meta.textContent='챌린지 시작 전';exEl.textContent='9월 15일부터 시작!';emoji.textContent='🗓️';dayEl.textContent='D-'+Math.abs(dayNum-1);}
-  else if(dayNum>100){card.className='today-card done';meta.textContent='챌린지 완료 🎉';exEl.textContent='100일 달성!';emoji.textContent='🏆';cnt.textContent='수고하셨습니다!';dayEl.textContent='100';}
-  else{card.className='today-card pushup';meta.textContent='오늘 · '+dayNum+'일차';exEl.textContent='5세트 💪';cnt.innerHTML='<b>311푸쉬업10 · 무릎터치런지10 · 매달리기30초</b> · 1세트 · 총 5세트(봉없으면 7세트)';emoji.textContent='💪';dayEl.textContent=dayNum;}
+      altEl=document.getElementById('todayExAlt'), partnerEl=document.getElementById('todayPartnerStatus'),
+      dayEl=document.getElementById('todayDayNum');
+  var dateStr = formatTodayDateStr(today);
+  if(dayNum<1){
+    card.className='today-card done';
+    meta.textContent='챌린지 시작 전';
+    exEl.textContent='9월 15일부터 시작!';
+    dayEl.textContent='D-'+Math.abs(dayNum-1);
+  }
+  else if(dayNum>100){
+    card.className='today-card done';
+    meta.textContent='챌린지 완료 🎉';
+    exEl.textContent='100일 달성! 수고하셨습니다';
+    dayEl.textContent='100';
+  }
+  else{
+    card.className='today-card pushup';
+    dayEl.textContent=dayNum;
+    // 1줄: 날짜만
+    meta.textContent=dateStr;
+    // 2줄: 3종 5세트
+    exEl.innerHTML='<b>푸쉬업10 · 런지10 · 매달리기30초</b> × 5세트';
+    exEl.style.fontSize='13px';
+    // 3줄: 2종 7세트(대안)
+    if(altEl) altEl.textContent='(또는 푸쉬업10 · 런지10 × 7세트)';
+    // 4줄: 짝꿍 오늘 인증 여부 - 데이터 로딩 후 updatePartnerTodayStatus()에서 채움
+    if(partnerEl){
+      partnerEl.style.fontSize='14px';
+      partnerEl.textContent = '';
+    }
+  }
 })();
+
+// 짝꿍의 오늘 인증 여부 표시 (시트 데이터 로딩 완료 후 호출)
+async function updatePartnerTodayStatus(){
+  var partnerEl = document.getElementById('todayPartnerStatus');
+  if(!partnerEl) return;
+  if(!g_myName){ partnerEl.textContent=''; return; }
+
+  // 설정에 저장된 g_partnerName(단순 표시용)이 아니라, 최신 짝꿍 명단에서 실시간 조회
+  var pairs = await getNamePairs();
+  var mine = pairs.find(function(x){ return x.name===g_myName; });
+  var currentPartner = mine ? (mine.partner||'') : '';
+
+  if(!currentPartner){ partnerEl.textContent=''; return; }
+  var nameSpan = '<b style="color:var(--accent2)">'+currentPartner+'</b>';
+  if(!g_todayStr || !allParticipants.length){
+    partnerEl.innerHTML = '🤝 짝꿍('+nameSpan+') 확인 중...';
+    return;
+  }
+  var p = allParticipants.find(function(x){ return x.name===currentPartner; });
+  var done = !!(p && p.byDate && p.byDate.hasOwnProperty(g_todayStr));
+  partnerEl.innerHTML = done
+    ? '🤝 짝꿍('+nameSpan+') 오늘 인증 <b style="color:var(--accent)">완료 ✅</b>'
+    : '🤝 짝꿍('+nameSpan+') 오늘 인증 <b style="color:#ff8fa3">미완료</b>';
+}
 
 // 스플래시 화면: 계산은 순수 날짜 기반 (시트 로딩과 무관, 즉시 표시)
 function computeDayInfo(){
@@ -1165,6 +1221,7 @@ function loadFromCache(){
     if(realToday !== obj.todayStr){ sessionStorage.removeItem(CACHE_KEY); return false; }
     renderChart(); renderTable(); updateCertRestStatus();
     setDataReady(true);
+    updatePartnerTodayStatus(); // 짝꿍 오늘 인증 여부 갱신
     var n=new Date(); document.getElementById('lastUpdated').textContent='캐시: '+n.getHours()+':'+String(n.getMinutes()).padStart(2,'0');
     // 파트너 캐시 복원
     if(obj.partners) g_partnersData = obj.partners;
@@ -1390,6 +1447,7 @@ function processSheetData(table){
   dbg('setDataReady(true) → 인증 버튼 활성화','ok');
   setDataReady(true); // 데이터 준비 완료 → 버튼 활성화
   checkAlreadyCertified(); // 현재 날짜/이름 기준 인증완료 여부 즉시 반영
+  updatePartnerTodayStatus(); // 짝꿍 오늘 인증 여부 갱신
 
   // 차트/테이블 렌더링은 비동기로 (UI 차단 방지)
   try { renderChart(); } catch(e){ dbg('renderChart 오류: '+e.message,'err'); }
@@ -1577,7 +1635,7 @@ function triggerFileInput(type){
   }
 }
 
-function onFilesSelected(files){
+async function onFilesSelected(files){
   var remaining = 5 - selectedFiles.length;
   var added = 0;
   for(var i=0; i<files.length && added<remaining; i++){
@@ -1588,8 +1646,9 @@ function onFilesSelected(files){
     alert('최대 5개까지만 등록됩니다. '+(files.length-remaining)+'개는 제외되었습니다.');
   }
   if(added > 0) showCertStatus('','' ); // 사진 등록 시 이전 경고 메시지 즉시 제거
-  saveSessionPhotos();
-  renderPhotoPreviews();
+  renderPhotoPreviews(); // 화면은 즉시 반영
+  await saveSessionPhotos(); // IndexedDB 저장 완료까지 확실히 대기 (탭 전환 등으로 중단되어 유실되는 것 방지)
+  dbg('사진 등록 완료 - IndexedDB 저장 확인됨','ok');
 }
 
 /* ── Google Drive 사진 업로드 ── */
@@ -1617,7 +1676,7 @@ async function compressToBase64(file, maxPx){
 }
 
 async function uploadPhotoToDrive(file, name, dateKey){
-  if(!DRIVE_SCRIPT_URL) return null;
+  if(!DRIVE_SCRIPT_URL){ dbg('❌ DRIVE_SCRIPT_URL 미설정','err'); return null; }
   try {
     var b64 = await compressToBase64(file, 1920);
     var payload = {
@@ -1632,10 +1691,20 @@ async function uploadPhotoToDrive(file, name, dateKey){
       method:  'POST',
       body:    JSON.stringify(payload)
     });
-    var json = await res.json();
-    return json.success ? {driveId: json.id, url: json.viewUrl} : null;
+    var text = await res.text();
+    var json;
+    try{ json = JSON.parse(text); }
+    catch(parseErr){
+      dbg('❌ Drive 업로드 응답이 JSON 아님 (status:'+res.status+') body(앞200자):'+text.slice(0,200),'err');
+      return null;
+    }
+    if(!json.success){
+      dbg('❌ Drive 업로드 서버 오류: '+(json.error||'알 수 없음'),'err');
+      return null;
+    }
+    return {driveId: json.id, url: json.viewUrl};
   } catch(e){
-    console.warn('Drive 업로드 실패:', e);
+    dbg('❌ uploadPhotoToDrive 예외: '+e.message,'err');
     return null;
   }
 }
@@ -1942,17 +2011,24 @@ async function saveSessionPhotos(){
   if(!key) return;
   if(selectedFiles.length){
     g_sessionPhotos[key] = selectedFiles.map(function(f){ return URL.createObjectURL(f); });
-    savePhotoDB(key, selectedFiles);
+    await savePhotoDB(key, selectedFiles); // IndexedDB 저장 완료 확실히 대기
     // Drive 업로드 (비동기 백그라운드)
     if(DRIVE_SCRIPT_URL){
       var name    = (document.getElementById('certName').value||'').trim();
       var dateVal = document.getElementById('certDate').value;
       var parts   = dateVal.split('-');
       var dateKey = parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
+      dbg('Drive 업로드 시작: '+name+' '+dateKey+' ('+selectedFiles.length+'장)','warn');
       selectedFiles.forEach(function(file){
         uploadPhotoToDrive(file, name, dateKey).then(function(result){
-          if(result && result.driveId && result.url)
+          if(result && result.driveId && result.url){
             addDriveEntry(key, result.driveId, result.url);
+            dbg('✅ Drive 업로드 성공: '+result.driveId,'ok');
+          } else {
+            dbg('❌ Drive 업로드 실패 (결과 없음)','err');
+          }
+        }).catch(function(e){
+          dbg('❌ Drive 업로드 오류: '+e.message,'err');
         });
       });
     }
@@ -2467,6 +2543,7 @@ function applyMyName(){
   // 사진 섹션: 내 이름일 때만 표시
   updatePhotoSectionVisibility();
   updateSettingsBtnState();
+  updatePartnerTodayStatus();
 }
 
 // 이름 미설정 시 설정 버튼 깜빡이며 강조 + 인증 이름 입력/제출 잠금
