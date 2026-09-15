@@ -351,7 +351,7 @@
         <div style="display:flex;gap:10px">
           <div style="flex:1;min-width:0">
             <div class="flabel">운동한 날짜<span class="freq">*</span></div>
-            <input type="date" id="certDate" class="cinput"/>
+            <select id="certDate" class="cinput"></select>
           </div>
           <div style="flex:1;min-width:0">
             <div class="flabel">이름<span class="freq">*</span></div>
@@ -439,6 +439,7 @@
         <div>3종 5세트 <b>또는</b> 2종 7세트 <b>선택</b> 진행</div>
       </div></div>
       <div class="rule-item"><div class="rule-dot"></div>운동 후 <b>짝꿍 태그</b>하여 셀카/영상 채팅방 업로드</div>
+      <div class="rule-item"><div class="rule-dot"></div>인증은 <b>오늘 또는 어제 날짜</b>만 가능 (그 이전 날짜는 인증 불가)</div>
       <div class="rule-item"><div class="rule-dot"></div><b>1회 휴식권</b> 사용 가능 (짝꿍 허락 필요. 단 1번 사용 가능)</div>
       <div class="rule-item"><div class="rule-dot"></div><b>1회 흑기사권</b> 사용 가능 — 짝꿍이 나 대신 오늘 실시(대신 운동)해준 경우 신청. 신청자는 "신청", 짝꿍은 "실시"로 기록됨 (짝꿍 허락 필요, 단 1번)</div>
     </div>
@@ -577,6 +578,14 @@ var g_pendingPersonalSearch  = false; // 현황 로딩 후 자동조회 예약
 
 var g_myName         = localStorage.getItem('pio_my_name')    || '';
 var g_partnerName    = localStorage.getItem('pio_partner_name') || '';
+var ADMIN_NAME = '이중희';
+function isAdmin(){ return g_myName === ADMIN_NAME; }
+var CHALLENGE_START_STR = '2026-09-16';
+function isBeforeChallengeStart(){
+  var d=new Date();
+  var today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return today < CHALLENGE_START_STR;
+}
 var g_sessionPhotos  = {}; // {name_dateKey: [objectURL, ...]} - cert form용
 var g_drivePhotoKeys = {}; // {name: {date: [url, ...]}} - 개인조회용 Drive 데이터
 var g_photoNav       = { keys:[], idx:0, user:'' }; // 개인조회 사진 슬라이더
@@ -722,16 +731,8 @@ function switchTab(tab) {
   document.getElementById('page-cert').className   = 'page' + (tab==='cert'   ? ' active' : '');
   document.getElementById('page-status').className = 'page' + (tab==='status' ? ' active' : '');
   if (tab==='cert') {
-    // cert 탭 진입 시 날짜를 오늘로 최신화 (하루 지나 앱을 계속 켜둔 경우 대비)
-    var dEl = document.getElementById('certDate');
-    if(dEl){
-      var now = new Date();
-      var todayStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-      if(!isBeforeChallengeStart()){
-        dEl.max = todayStr;
-        dEl.value = todayStr;
-      }
-    }
+    // cert 탭 진입 시 날짜 옵션(오늘/내일)을 최신으로 갱신 (하루 지나 앱을 계속 켜둔 경우 대비)
+    populateCertDateOptions();
     checkAlreadyCertified(); // 최신 날짜 기준 인증완료 여부 재확인
     populateCertNameOptions(); // 이름 목록도 최신으로 (관리자는 전체 참여자 갱신)
 
@@ -981,20 +982,39 @@ function loadStatusAsync(){
 })();
 
 /* ── 날짜/이름 초기화 ── */
-(function(){
-  var CHALLENGE_START = '2026-09-16';
-  var d=new Date();
-  var today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  var el=document.getElementById('certDate');
-  el.min=CHALLENGE_START; // 챌린지 시작일 이전 선택 불가
-  if(today < CHALLENGE_START){
-    el.value = CHALLENGE_START;
-    el.max = CHALLENGE_START;
+function populateCertDateOptions(){
+  var el = document.getElementById('certDate');
+  if(!el) return;
+  var prevValue = el.value;
+  var now = new Date();
+  var today = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  var ydDate = new Date(now); ydDate.setDate(ydDate.getDate()-1);
+  var yesterday = ydDate.getFullYear()+'-'+String(ydDate.getMonth()+1).padStart(2,'0')+'-'+String(ydDate.getDate()).padStart(2,'0');
+
+  if(isBeforeChallengeStart()){
+    el.innerHTML = '<option value="'+CHALLENGE_START_STR+'">챌린지 시작 전</option>';
+    el.value = CHALLENGE_START_STR;
     el.disabled = true;
+    return;
+  }
+
+  el.disabled = false;
+  var opts = '<option value="'+today+'">오늘 ('+(now.getMonth()+1)+'월 '+now.getDate()+'일)</option>';
+  var hasYesterday = yesterday >= CHALLENGE_START_STR; // 챌린지 시작일 이전이면 어제 옵션 제외
+  if(hasYesterday){
+    opts += '<option value="'+yesterday+'">어제 ('+(ydDate.getMonth()+1)+'월 '+ydDate.getDate()+'일)</option>';
+  }
+  el.innerHTML = opts;
+
+  // 이전 선택값이 오늘/어제 중 하나면 유지, 아니면 오늘로
+  if(prevValue===today || (hasYesterday && prevValue===yesterday)){
+    el.value = prevValue;
   } else {
     el.value = today;
-    el.max = today; // 미래 날짜 선택 불가
   }
+}
+(function(){
+  populateCertDateOptions();
 })();
 (function(){
   // g_myName으로 자동 입력 (initPhotoDB.then에서 applyMyName 호출)
@@ -1075,6 +1095,7 @@ function applyRestDisabled() {
 }
 
 function toggleRest() {
+  if (isBeforeChallengeStart()) return; // 챌린지 시작 전에는 반응 없음
   // 이미 사용한 경우
   if (g_restUsed) {
     return; // 휴식권 행에 이미 안내 표시됨
@@ -1120,6 +1141,7 @@ function applyBlackKnightDisabled(){
 }
 
 function toggleBlackKnight(){
+  if (isBeforeChallengeStart()) return; // 챌린지 시작 전에는 반응 없음
   if (g_blackKnightUsed) return; // 흑기사권 행에 이미 안내 표시됨
   if(restChecked){ showToast('휴식권과 흑기사권은 동시에 사용할 수 없어요.'); return; }
   if(!blackKnightChecked){
@@ -1223,6 +1245,19 @@ async function submitCert(){
   }
   if(!dv){showCertStatus('err','📅 날짜를 선택해주세요.');return;}
   if(!nv){showCertStatus('err','✏️ 이름을 입력해주세요.');return;}
+
+  // 인증 제출 순간에 날짜 재검증: 오늘 또는 어제만 허용
+  var nowChk = new Date();
+  var todayChk = nowChk.getFullYear()+'-'+String(nowChk.getMonth()+1).padStart(2,'0')+'-'+String(nowChk.getDate()).padStart(2,'0');
+  var ydChk = new Date(nowChk); ydChk.setDate(ydChk.getDate()-1);
+  var yesterdayChk = ydChk.getFullYear()+'-'+String(ydChk.getMonth()+1).padStart(2,'0')+'-'+String(ydChk.getDate()).padStart(2,'0');
+  if(dv !== todayChk && dv !== yesterdayChk){
+    showCertStatus('err','📅 오늘 또는 어제 날짜만 인증 가능합니다.');
+    showToast('⛔ 날짜가 지나 인증에 실패했습니다.');
+    populateCertDateOptions(); // 날짜 옵션 최신으로 되돌림
+    return;
+  }
+
   if(!g_dataReady){showCertStatus('err','⏳ 참여자 데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');return;}
   var trustedByMyName = false;
   if(isAdmin()){
@@ -2936,15 +2971,6 @@ function showTodayPopup(){
 
 /* ── 참여인원 + 짝꿍 팝업 ── */
 var g_partnersData = null;
-var ADMIN_NAME = '이중희';
-function isAdmin(){ return g_myName === ADMIN_NAME; }
-
-var CHALLENGE_START_STR = '2026-09-16';
-function isBeforeChallengeStart(){
-  var d=new Date();
-  var today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  return today < CHALLENGE_START_STR;
-}
 
 /* ── 관리자: 참여인원/짝꿍 편집 ── */
 var g_adminPairs = null; // [{a, b}] 편집 중인 짝(pair) 목록 (b는 짝꿍 없으면 빈 문자열)
