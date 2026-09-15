@@ -660,8 +660,10 @@ function getPhotoKeysForUser(name){
       req.onsuccess = function(e){
         var cursor = e.target.result;
         if(cursor){
-          if(cursor.key.indexOf(name+'_')===0 && cursor.value && cursor.value.length>0)
+          if(cursor.key.indexOf(name+'_')===0 && cursor.value && cursor.value.length>0
+             && isKeyDateInCurrentChallenge(cursor.key)){
             keys.add(cursor.key);
+          }
           cursor.continue();
         } else {
           resolve(keys);
@@ -670,6 +672,19 @@ function getPhotoKeysForUser(name){
       req.onerror = function(){ resolve(new Set()); };
     } catch(e){ resolve(new Set()); }
   });
+}
+
+// 사진 키(이름_YYYY/M/D)의 날짜가 현재 챌린지 시작일 이후인지 확인 (이전 기수 데이터 혼입 방지)
+function isKeyDateInCurrentChallenge(key){
+  var us = key.indexOf('_');
+  if(us < 0) return true;
+  var dateStr = key.slice(us+1); // "2026/9/15"
+  var p = dateStr.split('/');
+  if(p.length !== 3) return true;
+  var y=parseInt(p[0],10), m=parseInt(p[1],10), d=parseInt(p[2],10);
+  if(!y||!m||!d) return true;
+  var keyYmd = y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  return keyYmd >= CHALLENGE_START_STR;
 }
 
 function setDataReady(ready){
@@ -2116,9 +2131,10 @@ async function showPersonalPhotos(key){
   dbg('getPhotoKeysForUser 호출','ok');
   var dbKeys = await getPhotoKeysForUser(user);
   dbg('dbKeys 수: '+dbKeys.size,'ok');
-  // 세션 캐시 키도 포함 (비어있지 않은 것만)
+  // 세션 캐시 키도 포함 (비어있지 않은 것만, 현재 챌린지 기간만)
   Object.keys(g_sessionPhotos).forEach(function(k){
-    if(k.indexOf(user+'_')===0 && g_sessionPhotos[k] && g_sessionPhotos[k].length > 0)
+    if(k.indexOf(user+'_')===0 && g_sessionPhotos[k] && g_sessionPhotos[k].length > 0
+       && isKeyDateInCurrentChallenge(k))
       dbKeys.add(k);
   });
   dbg('세션캐시 포함 후 keys: '+dbKeys.size,'ok');
