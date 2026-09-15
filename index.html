@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,interactive-widget=resizes-content"/>
   <title>PIO 4기 챌린지</title>
 
   <!-- PWA 설치 필수 태그 -->
@@ -139,7 +139,7 @@
     /* 이미지 크기 제한 + 터치 검색 차단 */
     .modal-body img{max-height:70vh;width:100%;object-fit:contain;display:block;margin-bottom:10px;
       -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;pointer-events:none;}
-    .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:680px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;touch-action:pan-y;}
+    .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:680px;max-height:80vh;max-height:80dvh;display:flex;flex-direction:column;overflow:hidden;touch-action:pan-y;}
     .modal-hdr{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
     .modal-title{font-size:16px;font-weight:700;}
     .modal-close{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px;color:var(--muted);font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
@@ -313,7 +313,7 @@
       📲 앱으로 설치하기
     </button>
   <h1 style="white-space:nowrap;font-size:clamp(22px,7.5vw,40px);letter-spacing:1px">PIO 4기 챌린지</h1>
-  <p class="subtitle" style="color:var(--accent);font-weight:700">9월 15일 ~ 12월 23일 · 100일간</p>
+  <p class="subtitle" style="color:var(--accent);font-weight:700">9월 16일 ~ 12월 24일 · 100일간</p>
 </header>
 
 <div class="tab-nav">
@@ -713,6 +713,30 @@ function switchTab(tab) {
   document.getElementById('page-cert').className   = 'page' + (tab==='cert'   ? ' active' : '');
   document.getElementById('page-status').className = 'page' + (tab==='status' ? ' active' : '');
   if (tab==='cert') {
+    // cert 탭 진입 시 날짜를 오늘로 최신화 (하루 지나 앱을 계속 켜둔 경우 대비)
+    var dEl = document.getElementById('certDate');
+    if(dEl){
+      var now = new Date();
+      var todayStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+      if(!isBeforeChallengeStart()){
+        dEl.max = todayStr;
+        dEl.value = todayStr;
+      }
+    }
+    checkAlreadyCertified(); // 최신 날짜 기준 인증완료 여부 재확인
+
+    // g_partnerName도 최신 참여인원 명단 기준으로 갱신 (인증 검증 로직에 사용됨)
+    if(g_myName){
+      getNamePairs().then(function(pairs){
+        var mine = pairs.find(function(x){ return x.name===g_myName; });
+        var latestPartner = mine ? (mine.partner||'') : '';
+        if(latestPartner !== g_partnerName){
+          g_partnerName = latestPartner;
+          localStorage.setItem('pio_partner_name', latestPartner);
+        }
+        updatePartnerTodayStatus(); // 최신 짝꿍 기준으로 오늘 인증 여부 재조회
+      });
+    }
     // cert 탭 진입 시 Drive에서 현재 날짜 사진 동기화
     setTimeout(loadPhotosForDate, 100);
   }
@@ -747,7 +771,7 @@ function formatTodayDateStr(d){
   return (d.getMonth()+1)+'월 '+d.getDate()+'일';
 }
 (function(){
-  var start=new Date('2026-09-15T00:00:00');
+  var start=new Date('2026-09-16T00:00:00');
   var today=new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   var dayNum=Math.floor((today-start)/86400000)+1;
   var card=document.getElementById('todayCard'),
@@ -758,7 +782,7 @@ function formatTodayDateStr(d){
   if(dayNum<1){
     card.className='today-card done';
     meta.textContent='챌린지 시작 전';
-    exEl.textContent='9월 15일부터 시작!';
+    exEl.textContent='9월 16일부터 시작!';
     dayEl.textContent='D-'+Math.abs(dayNum-1);
   }
   else if(dayNum>100){
@@ -811,10 +835,10 @@ async function updatePartnerTodayStatus(){
 
 // 스플래시 화면: 계산은 순수 날짜 기반 (시트 로딩과 무관, 즉시 표시)
 function computeDayInfo(){
-  var start=new Date('2026-09-15T00:00:00');
+  var start=new Date('2026-09-16T00:00:00');
   var today=new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
   var dayNum=Math.floor((today-start)/86400000)+1;
-  if(dayNum<1) return '🗓️ 9월 15일부터 시작!';
+  if(dayNum<1) return '🗓️ 9월 16일부터 시작!';
   if(dayNum>100) return '🏆 100일 달성! 수고하셨습니다';
   return '오늘 '+dayNum+'일차 · 💪 5세트 (311푸쉬업·무릎런지·매달리기)';
 }
@@ -948,7 +972,7 @@ function loadStatusAsync(){
 
 /* ── 날짜/이름 초기화 ── */
 (function(){
-  var CHALLENGE_START = '2026-09-15';
+  var CHALLENGE_START = '2026-09-16';
   var d=new Date();
   var today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   var el=document.getElementById('certDate');
@@ -1373,7 +1397,7 @@ function processSheetData(table){
   dbg('컬럼: 이름='+nameCol+' 날짜='+dateCol+' 휴식='+restCol+' ts='+tsCol,'ok');
 
   // 시작일 / 오늘
-  var start=new Date('2026-09-15');start.setHours(0,0,0,0);
+  var start=new Date('2026-09-16');start.setHours(0,0,0,0);
   var today=new Date();today.setHours(0,0,0,0);
   g_elapsed=Math.min(Math.floor((today-start)/86400000)+1,100);
   g_todayStr=d2s(today);
@@ -1569,7 +1593,7 @@ async function searchPersonal(){
   }
   if(!p){document.getElementById('personalResult').innerHTML='<div class="no-result" style="padding:32px"><div style="font-size:28px;margin-bottom:10px">⛔</div><div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">참여 인원이 아닙니다.</div><div style="font-size:12px;color:var(--muted)">'+name+'</div></div>';return;}
 
-  var start=new Date('2026-09-15');start.setHours(0,0,0,0);
+  var start=new Date('2026-09-16');start.setHours(0,0,0,0);
   var today=new Date();today.setHours(0,0,0,0);
 
   // DB에서 이 사람의 사진 키 목록 가져오기
@@ -2705,16 +2729,32 @@ function clearDriveCache(){
   Object.keys(g_sessionPhotos).forEach(function(k){delete g_sessionPhotos[k];});
   alert('캐시 초기화 완료'); location.reload();
 }
-function openSettings(){
+async function openSettings(){
   var myNameInput = document.getElementById('settingsMyName');
   myNameInput.value = g_myName;
   myNameInput.dataset.selected = g_myName ? '1' : '';
-  document.getElementById('settingsPartnerName').value = g_partnerName;
   var display = document.getElementById('settingsPartnerDisplay');
-  if(g_partnerName){ display.textContent = '짝꿍 : '+g_partnerName; display.style.color = '#8892a4'; }
-  else { display.textContent = ''; display.style.color = '#6b7a99'; }
+  var partnerInput = document.getElementById('settingsPartnerName');
+
   var el = document.getElementById('settingsOverlay');
   if(el) el.style.display = 'flex';
+
+  if(!g_myName){
+    display.textContent = ''; display.style.color = '#6b7a99';
+    partnerInput.value = '';
+    return;
+  }
+
+  display.textContent = '짝꿍 확인 중...'; display.style.color = '#6b7a99';
+
+  // 저장된 g_partnerName(과거값)이 아니라 최신 참여인원 명단에서 실시간 조회
+  var pairs = await getNamePairs();
+  var mine = pairs.find(function(x){ return x.name===g_myName; });
+  var currentPartner = mine ? (mine.partner||'') : '';
+
+  partnerInput.value = currentPartner;
+  if(currentPartner){ display.textContent = '짝꿍 : '+currentPartner; display.style.color = '#8892a4'; }
+  else { display.textContent = '짝꿍 없음'; display.style.color = '#6b7a99'; }
 }
 function closeSettings(){
   var el = document.getElementById('settingsOverlay');
@@ -2775,7 +2815,7 @@ var g_partnersData = null;
 var ADMIN_NAME = '이중희';
 function isAdmin(){ return g_myName === ADMIN_NAME; }
 
-var CHALLENGE_START_STR = '2026-09-15';
+var CHALLENGE_START_STR = '2026-09-16';
 function isBeforeChallengeStart(){
   var d=new Date();
   var today=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -2828,7 +2868,7 @@ function renderAdminRows(){
   }).join('');
 
   var html = ''
-    + '<div style="max-height:50vh;overflow-y:auto;margin-bottom:12px">'+rowsHtml+'</div>'
+    + '<div style="max-height:50vh;max-height:50dvh;overflow-y:auto;margin-bottom:12px">'+rowsHtml+'</div>'
     + '<button onclick="addAdminRow()" style="width:100%;margin-bottom:14px;padding:10px;border-radius:10px;border:1px dashed var(--border);background:none;color:var(--muted);font-family:inherit;font-size:13px;cursor:pointer">+ 참여자(짝) 추가</button>'
     + '<div style="display:flex;gap:8px">'
       + '<button onclick="showParticipantsPopup()" style="flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer">취소</button>'
