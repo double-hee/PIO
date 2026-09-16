@@ -398,7 +398,6 @@
     </div>
   </div>
   </div>
-</div>
 
   <div class="cert-section">
     <div class="cert-card">
@@ -446,13 +445,13 @@
           <div class="photo-previews" id="photoPreviews"></div>
           <div class="photo-add-row" id="photoAddRow">
             <button class="photo-add-btn" onclick="triggerFileInput('gallery')">
-              <span>🖼️</span> 갤러리
+              <span>🖼️</span> 갤러리 · 영상
             </button>
             <button class="photo-add-btn" onclick="triggerFileInput('photo')">
               <span>📷</span> 사진 찍기
             </button>
           </div>
-          <input type="file" id="galleryInput" accept="image/*" multiple style="display:none" onchange="onFilesSelected(this.files)">
+          <input type="file" id="galleryInput" accept="image/*,video/*" multiple style="display:none" onchange="onFilesSelected(this.files)">
           <input type="file" id="photoCapture" accept="image/*" capture="environment" style="display:none" onchange="onFilesSelected(this.files)">
           <button class="share-btn" id="shareBtn" onclick="enterShareMode()">
             <span>📤</span> 공유하기
@@ -469,8 +468,7 @@
       </div>
     </div>
   </div>
-
-  
+</div>
 
 <!-- ══ 현황 탭 ══ -->
 <div class="page" id="page-status">
@@ -1024,9 +1022,65 @@ function loadStatusAsync(){
     preloadTodayPhoto().then(function(){
       dbg('오늘 사진 로딩 완료 - 화면 갱신','ok');
       loadPhotosForDate();
+      processSharedFiles(); // 갤러리에서 공유하기로 넘어온 파일 처리
     });
   });
 })();
+
+/* ── 갤러리에서 "공유하기"로 넘어온 파일 처리 (Web Share Target) ── */
+function openShareInboxDB(){
+  return new Promise(function(resolve, reject){
+    var req = indexedDB.open('pio-share-inbox', 1);
+    req.onupgradeneeded = function(){
+      var db = req.result;
+      if(!db.objectStoreNames.contains('inbox')) db.createObjectStore('inbox');
+    };
+    req.onsuccess = function(){ resolve(req.result); };
+    req.onerror = function(){ reject(req.error); };
+  });
+}
+
+function takeSharedFiles(){
+  return new Promise(function(resolve){
+    openShareInboxDB().then(function(db){
+      var tx = db.transaction('inbox','readwrite');
+      var store = tx.objectStore('inbox');
+      var getReq = store.get('pending');
+      getReq.onsuccess = function(){
+        var files = getReq.result || null;
+        if(files) store.delete('pending'); // 한 번 가져가면 비움
+        tx.oncomplete = function(){ resolve(files); };
+      };
+      getReq.onerror = function(){ resolve(null); };
+    }).catch(function(){ resolve(null); });
+  });
+}
+
+async function processSharedFiles(){
+  try{
+    var files = await takeSharedFiles();
+    if(!files || !files.length) return;
+
+    dbg('공유받은 파일 '+files.length+'개 처리 시작','warn');
+
+    // 운동인증 탭으로 이동 + 오늘 날짜로 설정
+    switchTab('cert');
+    populateCertDateOptions(); // 오늘 날짜가 기본 선택됨
+
+    // 잠시 후(탭 전환/렌더 완료 후) 파일 추가
+    setTimeout(function(){
+      onFilesSelected(files);
+      var videoCount = Array.prototype.filter.call(files, function(f){
+        return f.type && f.type.indexOf('video')===0;
+      }).length;
+      showToast(videoCount>0
+        ? '📥 공유된 영상 '+files.length+'개를 오늘 날짜로 추가했어요'
+        : '📥 공유된 사진 '+files.length+'장을 오늘 날짜로 추가했어요');
+    }, 300);
+  }catch(e){
+    dbg('공유 파일 처리 오류: '+e.message,'err');
+  }
+}
 
 /* ── 날짜/이름 초기화 ── */
 function populateCertDateOptions(){
@@ -2240,19 +2294,25 @@ async function saveSessionPhotos(){
       var dateVal = document.getElementById('certDate').value;
       var parts   = dateVal.split('-');
       var dateKey = parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
-      dbg('Drive 업로드 시작: '+name+' '+dateKey+' ('+selectedFiles.length+'장)','warn');
-      selectedFiles.forEach(function(file){
-        uploadPhotoToDrive(file, name, dateKey).then(function(result){
-          if(result && result.driveId && result.url){
-            addDriveEntry(key, result.driveId, result.url);
-            dbg('✅ Drive 업로드 성공: '+result.driveId,'ok');
-          } else {
-            dbg('❌ Drive 업로드 실패 (결과 없음)','err');
-          }
-        }).catch(function(e){
-          dbg('❌ Drive 업로드 오류: '+e.message,'err');
+      // 동영상(하이퍼랩스 등)은 용량이 커서 Drive 업로드 제외 - IndexedDB에만 보관
+      var imageFiles = selectedFiles.filter(function(f){ return !(f.type && f.type.indexOf('video')===0); });
+      var videoCount = selectedFiles.length - imageFiles.length;
+      if(videoCount>0) dbg('동영상 '+videoCount+'개는 Drive 업로드 제외 (IndexedDB에만 보관)','warn');
+      if(imageFiles.length){
+        dbg('Drive 업로드 시작: '+name+' '+dateKey+' ('+imageFiles.length+'장)','warn');
+        imageFiles.forEach(function(file){
+          uploadPhotoToDrive(file, name, dateKey).then(function(result){
+            if(result && result.driveId && result.url){
+              addDriveEntry(key, result.driveId, result.url);
+              dbg('✅ Drive 업로드 성공: '+result.driveId,'ok');
+            } else {
+              dbg('❌ Drive 업로드 실패 (결과 없음)','err');
+            }
+          }).catch(function(e){
+            dbg('❌ Drive 업로드 오류: '+e.message,'err');
+          });
         });
-      });
+      }
     }
   } else {
     delete g_sessionPhotos[key];
