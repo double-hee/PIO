@@ -2054,8 +2054,7 @@ function renderPhotoPreviews(){
     var isVideo = file.type.startsWith('video/');
     var url = URL.createObjectURL(file);
     if(isVideo){
-      item.innerHTML = '<video src="'+url+'" muted playsinline style="width:100%;height:100%;object-fit:cover"></video>'
-        +'<span class="video-icon">▶️</span>';
+      item.innerHTML = '<video src="'+url+'" controls playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>';
     } else {
       item.innerHTML = '<img src="'+url+'" alt="사진" style="-webkit-touch-callout:none;user-select:none;pointer-events:none">';
     }
