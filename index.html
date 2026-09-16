@@ -26,13 +26,13 @@
     @keyframes d2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
 
     /* HEADER */
-    header{position:relative;z-index:10;padding:14px 24px 10px;text-align:center;}
+    header{position:relative;z-index:10;padding:10px 16px 6px;text-align:center;}
     .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.25);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:3px;padding:7px 18px;border-radius:20px;margin-bottom:18px;text-transform:uppercase;}
     h1{font-weight:300;font-size:clamp(22px,5.5vw,36px);line-height:1.1;letter-spacing:2px;background:linear-gradient(135deg,#fff 0%,var(--accent) 55%,var(--accent2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px;margin-top:4px;}
     .subtitle{color:var(--muted);font-size:12px;font-weight:300;letter-spacing:1px;margin-bottom:10px;}
 
     /* MAIN TABS */
-    .tab-nav{position:relative;z-index:10;display:flex;max-width:680px;margin:0 auto 10px;padding:0 20px;gap:8px;}
+    .tab-nav{position:relative;z-index:10;display:flex;max-width:680px;margin:0 auto 6px;padding:0 20px;gap:8px;}
     .tab-btn{flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;}
     .tab-btn.ag{background:rgba(0,229,160,.12);border-color:var(--accent);color:var(--accent);}
     .tab-btn.ab{background:rgba(0,184,255,.12);border-color:var(--accent2);color:var(--accent2);}
@@ -41,7 +41,7 @@
     .page{display:none;} .page.active{display:block;}
 
     /* TODAY CARD */
-    .today-section{position:relative;z-index:10;max-width:680px;margin:0 auto 8px;padding:0 20px;}
+    .today-section{position:relative;z-index:10;max-width:680px;margin:0 auto 6px;padding:0 20px;}
     .today-card{border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px;border:1px solid transparent;}
     .today-card.pushup{background:linear-gradient(135deg,rgba(0,229,160,.13),rgba(0,229,160,.04));border-color:rgba(0,229,160,.4);box-shadow:var(--gg);}
     .today-card.lunge{background:linear-gradient(135deg,rgba(0,184,255,.13),rgba(0,184,255,.04));border-color:rgba(0,184,255,.4);box-shadow:var(--gb);}
@@ -58,11 +58,11 @@
     .today-day-lbl{font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;}
 
     /* CERT FORM */
-    .cert-section{position:relative;z-index:10;max-width:680px;margin:0 auto 10px;padding:0 20px;}
+    .cert-section{position:relative;z-index:10;max-width:680px;margin:0 auto 6px;padding:0 20px;}
     .cert-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.3);}
-    .cert-hdr{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+    .cert-hdr{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
     .cert-hdr-icon{font-size:22px;} .cert-hdr-title{font-size:15px;font-weight:700;color:var(--accent);} .cert-hdr-sub{font-size:11px;color:var(--muted);margin-top:2px;}
-    .cert-body{padding:14px;display:flex;flex-direction:column;gap:10px;}
+    .cert-body{padding:12px;display:flex;flex-direction:column;gap:7px;}
     .flabel{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
     .freq{color:var(--accent);margin-left:2px;}
     .cinput{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px 16px;color:var(--text);font-size:15px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;}
@@ -305,15 +305,15 @@
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
 
-<header>
-  <div style="display:flex;justify-content:flex-end;align-items:center">
-    <button id="settingsBtn" onclick="openSettings()" style="background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;padding:7px 14px;border-radius:20px;display:flex;align-items:center;gap:5px;font-family:'Noto Sans KR',sans-serif" title="내 이름/짝꿍 등록"><span>👤</span> 내이름·짝꿍등록</button>
+<header style="padding-bottom:8px">
+  <div style="position:relative">
+    <h1 style="white-space:nowrap;font-size:clamp(22px,7.5vw,40px);letter-spacing:1px;margin:0">PIO 4기</h1>
+    <button id="settingsBtn" onclick="openSettings()" style="position:absolute;right:0;top:50%;transform:translateY(-50%);background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:5px 10px;border-radius:16px;display:flex;align-items:center;gap:4px;font-family:'Noto Sans KR',sans-serif;white-space:nowrap" title="내 이름/짝꿍 등록"><span>👤</span> 이름등록</button>
   </div>
-    <button id="pwaInstallBtn" onclick="installPWA()" style="display:none;margin:0 auto 16px;align-items:center;gap:8px;padding:9px 20px;border-radius:20px;border:1px solid rgba(0,229,160,.4);background:rgba(0,229,160,.1);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">
-      📲 앱으로 설치하기
-    </button>
-  <h1 style="white-space:nowrap;font-size:clamp(22px,7.5vw,40px);letter-spacing:1px">PIO 4기 챌린지</h1>
-  <p class="subtitle" style="color:var(--accent);font-weight:700">9월 16일 ~ 12월 24일 · 100일간</p>
+  <button id="pwaInstallBtn" onclick="installPWA()" style="display:none;margin:6px auto 0;align-items:center;gap:8px;padding:7px 18px;border-radius:20px;border:1px solid rgba(0,229,160,.4);background:rgba(0,229,160,.1);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px">
+    📲 앱으로 설치하기
+  </button>
+  <p class="subtitle" style="color:var(--accent);font-weight:700;margin-top:4px">9월 16일 ~ 12월 24일 · 100일간</p>
 </header>
 
 <div class="tab-nav">
@@ -324,17 +324,20 @@
 <!-- ══ 인증 탭 ══ -->
 <div class="page active" id="page-cert">
   <div class="today-section">
-    <div class="today-card" id="todayCard">
-      <div class="today-day-badge" id="todayDayBadge" style="flex-shrink:0;text-align:center;width:64px">
-        <div class="today-day-num" id="todayDayNum">-</div>
-        <div class="today-day-lbl">일차</div>
+    <div class="today-card" id="todayCard" style="flex-direction:column;align-items:stretch;gap:4px;padding:10px 14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="today-day-badge" id="todayDayBadge" style="flex-shrink:0;text-align:center;width:64px">
+          <div class="today-day-num" id="todayDayNum">-</div>
+          <div class="today-day-lbl">일차</div>
+        </div>
+        <div class="today-info" style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
+          <div class="today-meta" id="todayMeta" style="margin:0">오늘의 운동</div>
+          <div class="today-ex" id="todayEx" style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">로딩 중...</div>
+          <div id="todayExAlt" style="font-size:12px;color:var(--muted)"></div>
+          <div id="todayPartnerStatus" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
+        </div>
       </div>
-      <div class="today-info" style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:0">
-        <div class="today-meta" id="todayMeta" style="margin:0">오늘의 운동</div>
-        <div class="today-ex" id="todayEx" style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">로딩 중...</div>
-        <div id="todayExAlt" style="font-size:12px;color:var(--muted)"></div>
-        <div id="todayPartnerStatus" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
-      </div>
+      <div id="progressRibbonWrap" style="width:100%"></div>
     </div>
   </div>
 
@@ -344,7 +347,6 @@
         <span class="cert-hdr-icon">✍️</span>
         <div>
           <div class="cert-hdr-title">운동 인증하기</div>
-          <div class="cert-hdr-sub">오늘 운동을 완료했나요? 바로 여기서 인증하세요!</div>
         </div>
       </div>
       <div class="cert-body">
@@ -409,8 +411,8 @@
     </div>
   </div>
 
-  <div style="max-width:680px;margin:0 auto 14px;padding:0 20px;box-sizing:border-box">
-  <button onclick="var d=document.getElementById('certGuideDetail');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.cgd-arrow').textContent=open?'▲':'▼';" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:14px;border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
+  <div style="max-width:680px;margin:0 auto 8px;padding:0 20px;box-sizing:border-box">
+  <button id="certGuideBtn" onclick="var d=document.getElementById('certGuideDetail');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.cgd-arrow').textContent=open?'▲':'▼'; if(open){ setTimeout(function(){ d.scrollIntoView({behavior:'smooth', block:'start'}); }, 50); }" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:14px;border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
     <span>📖</span> 인증 방법 보기 <span class="cgd-arrow" style="font-size:11px">▼</span>
   </button>
   </div>
@@ -745,7 +747,7 @@ function switchTab(tab) {
           g_partnerName = latestPartner;
           localStorage.setItem('pio_partner_name', latestPartner);
         }
-        updatePartnerTodayStatus(); // 최신 짝꿍 기준으로 오늘 인증 여부 재조회
+        updatePartnerTodayStatus(); renderProgressRibbon(); // 최신 짝꿍 기준으로 오늘 인증 여부 재조회
       });
     }
     // cert 탭 진입 시 Drive에서 현재 날짜 사진 동기화
@@ -821,6 +823,49 @@ function formatTodayDateStr(d){
 })();
 
 // 짝꿍의 오늘 인증 여부 표시 (시트 데이터 로딩 완료 후 호출)
+// 100일 진행률 띠 렌더링 (내 이름 기준, 오늘까지 초록/빨강 + 화살표 + (실시/진행))
+function renderProgressRibbon(){
+  var wrap = document.getElementById('progressRibbonWrap');
+  if(!wrap) return;
+  if(!g_myName || isBeforeChallengeStart()){ wrap.innerHTML=''; return; }
+
+  var start = new Date(CHALLENGE_START_STR+'T00:00:00');
+  var today = new Date(); today.setHours(0,0,0,0); start.setHours(0,0,0,0);
+  var dayNum = Math.floor((today-start)/86400000)+1;
+  var elapsed = Math.max(0, Math.min(dayNum, 100));
+
+  var person = allParticipants.find(function(p){ return p.name===g_myName; });
+
+  var segW = 3.4, x0 = 20, barY = 12, barH = 8;
+  var rects = '';
+  var doneCount = 0;
+  for(var i=0; i<100; i++){
+    var x = x0 + i*segW;
+    var color;
+    if(i < elapsed){
+      var d = new Date(start); d.setDate(d.getDate()+i);
+      var ds = d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+      var isDone = person && person.byDate && person.byDate[ds]===false;
+      if(isDone) doneCount++;
+      color = isDone ? '#639922' : '#E24B4A';
+    } else {
+      color = '#D3D1C7';
+    }
+    rects += '<rect x="'+x.toFixed(2)+'" y="'+barY+'" width="'+segW+'" height="'+barH+'" fill="'+color+'"/>';
+  }
+
+  var arrowX = x0 + elapsed*segW;
+
+  var svg = ''
+    +'<svg width="100%" viewBox="0 0 380 40" role="img">'
+    +'<title>100일 진행률</title><desc>'+elapsed+'일 중 '+doneCount+'일 실시</desc>'
+    +rects
+    +'<text x="'+arrowX.toFixed(2)+'" y="'+(barY+barH+18).toFixed(2)+'" text-anchor="middle" style="font-size:14px;font-weight:800;fill:#39ff14">'+doneCount+'/'+elapsed+'</text>'
+    +'</svg>';
+
+  wrap.innerHTML = svg;
+}
+
 async function updatePartnerTodayStatus(){
   var partnerEl = document.getElementById('todayPartnerStatus');
   if(!partnerEl) return;
@@ -1365,7 +1410,7 @@ function loadFromCache(){
     if(realToday !== obj.todayStr){ sessionStorage.removeItem(CACHE_KEY); return false; }
     renderChart(); renderTable(); updateCertRestStatus(); updateCertBlackKnightStatus();
     setDataReady(true);
-    updatePartnerTodayStatus(); // 짝꿍 오늘 인증 여부 갱신
+    updatePartnerTodayStatus(); renderProgressRibbon(); // 짝꿍 오늘 인증 여부 갱신
     var n=new Date(); document.getElementById('lastUpdated').textContent='캐시: '+n.getHours()+':'+String(n.getMinutes()).padStart(2,'0');
     // 파트너 캐시 복원
     if(obj.partners) g_partnersData = obj.partners;
@@ -1603,7 +1648,7 @@ function processSheetData(table){
   dbg('setDataReady(true) → 인증 버튼 활성화','ok');
   setDataReady(true); // 데이터 준비 완료 → 버튼 활성화
   checkAlreadyCertified(); // 현재 날짜/이름 기준 인증완료 여부 즉시 반영
-  updatePartnerTodayStatus(); // 짝꿍 오늘 인증 여부 갱신
+  updatePartnerTodayStatus(); renderProgressRibbon(); // 짝꿍 오늘 인증 여부 갱신
 
   // 차트/테이블 렌더링은 비동기로 (UI 차단 방지)
   try { renderChart(); } catch(e){ dbg('renderChart 오류: '+e.message,'err'); }
@@ -2707,7 +2752,7 @@ function applyMyName(){
   // 사진 섹션: 내 이름일 때만 표시
   updatePhotoSectionVisibility();
   updateSettingsBtnState();
-  updatePartnerTodayStatus();
+  updatePartnerTodayStatus(); renderProgressRibbon();
 }
 
 // 이름 미설정 시 설정 버튼 깜빡이며 강조 + 인증 이름 입력/제출 잠금
@@ -2769,7 +2814,7 @@ function updateSettingsBtnState(){
   if(!btn) return;
   if(!mySet){
     btn.classList.add('needs-setup');
-    btn.innerHTML = '<span>👤</span> 내이름·짝꿍등록';
+    btn.innerHTML = '<span>👤</span> 이름등록';
   } else {
     btn.classList.remove('needs-setup');
     btn.innerHTML = '<span>👤</span> '+g_myName;
