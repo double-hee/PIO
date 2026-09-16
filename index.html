@@ -341,6 +341,65 @@
     </div>
   </div>
 
+  <div style="max-width:680px;margin:0 auto 8px;padding:0 20px;box-sizing:border-box">
+  <button id="certGuideBtn" onclick="var d=document.getElementById('certGuideDetail');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.cgd-arrow').textContent=open?'▲':'▼'; if(open){ setTimeout(function(){ d.scrollIntoView({behavior:'smooth', block:'start'}); }, 50); }" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:14px;border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
+    <span>📖</span> 인증 방법 보기 <span class="cgd-arrow" style="font-size:11px">▼</span>
+  </button>
+  </div>
+
+  <div id="certGuideDetail" style="display:none">
+  <div class="ch-info" style="grid-template-columns:1fr 1fr">
+    <div class="ic" style="border-color:rgba(0,229,160,.35)">
+      <div style="font-size:19px;font-weight:800;color:var(--accent);letter-spacing:.5px">3종 5세트</div>
+      <div class="ic-val" style="font-size:14px;line-height:1.6;text-align:left;padding-top:8px">
+        · 311푸쉬업 10회<br>· 무릎터치런지 10개<br>· 매달리기 30초
+      </div>
+    </div>
+    <div class="ic" style="border-color:rgba(0,184,255,.35)">
+      <div style="font-size:19px;font-weight:800;color:var(--accent2);letter-spacing:.5px">2종 7세트</div>
+      <div class="ic-val" style="font-size:14px;line-height:1.6;text-align:left;padding-top:8px">
+        · 311푸쉬업 10회<br>· 무릎터치런지 10개
+        <div style="margin-top:6px;color:var(--muted);font-size:11px">※ 매달리기 봉 없을 때 선택</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rule-box">
+    <div class="rule-inner">
+      <div class="rule-title">📋 인증 규칙</div>
+      <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+        <div>3종 5세트 <b>또는</b> 2종 7세트 <b>선택</b> 진행</div>
+      </div></div>
+      <div class="rule-item"><div class="rule-dot"></div>운동 후 <b>짝꿍 태그</b>하여 셀카/영상 채팅방 업로드</div>
+      <div class="rule-item"><div class="rule-dot"></div>인증은 <b>오늘 또는 어제 날짜</b>만 가능 (그 이전 날짜는 인증 불가)</div>
+      <div class="rule-item"><div class="rule-dot"></div><b>1회 휴식권</b> 사용 가능 (짝꿍 허락 필요. 단 1번 사용 가능)</div>
+      <div class="rule-item"><div class="rule-dot"></div><b>1회 흑기사권</b> 사용 가능 — 짝꿍이 나 대신 오늘 실시(대신 운동)해준 경우 신청. 신청자는 "신청", 짝꿍은 "실시"로 기록됨 (짝꿍 허락 필요, 단 1번)</div>
+    </div>
+  </div>
+
+  <div class="rule-box" style="margin-top:10px">
+    <div class="rule-inner">
+      <div class="rule-title">🏋️ 운동 방법 자세히 보기</div>
+      <div id="howtoDetail" style="display:flex;flex-direction:column;gap:12px;width:100%;margin-top:10px">
+        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+          <div><b>① 311 PUSH-UP</b> <span style="color:var(--muted)">(푸쉬업바 추천)</span></div>
+          <div style="margin-top:3px">3초 DOWN → 1초 HOLD → 1초 UP — 내려갈 때 3초, 바닥에서 1초 정지, 올라올 때 1초 템포로 진행</div>
+        </div></div>
+        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+          <div><b>② 무릎 터치 런지</b></div>
+          <div style="margin-top:3px">런지 동작 시 <b>뒤쪽 무릎이 바닥에 가볍게 닿도록</b> 정확한 자세로 진행</div>
+        </div></div>
+        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
+          <div><b>③ 매달리기</b></div>
+          <div style="margin-top:3px">견갑까지 충분히 축을 내린 완전한 매달리기(Dead Hang)로 시작. 쉬워지면 견갑을 잡은 상태(Active Hang)로 단계 업!</div>
+          <div style="margin-top:6px;color:var(--accent2);font-size:12px">→ PIO 5기 목표인 풀업(Pull-up)을 위한 예행 연습입니다</div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
   <div class="cert-section">
     <div class="cert-card">
       <div class="cert-hdr">
@@ -411,64 +470,7 @@
     </div>
   </div>
 
-  <div style="max-width:680px;margin:0 auto 8px;padding:0 20px;box-sizing:border-box">
-  <button id="certGuideBtn" onclick="var d=document.getElementById('certGuideDetail');var open=d.style.display==='none';d.style.display=open?'block':'none';this.querySelector('.cgd-arrow').textContent=open?'▲':'▼'; if(open){ setTimeout(function(){ d.scrollIntoView({behavior:'smooth', block:'start'}); }, 50); }" style="width:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:14px;border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--accent);font-family:'Noto Sans KR',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
-    <span>📖</span> 인증 방법 보기 <span class="cgd-arrow" style="font-size:11px">▼</span>
-  </button>
-  </div>
-
-  <div id="certGuideDetail" style="display:none">
-  <div class="ch-info" style="grid-template-columns:1fr 1fr">
-    <div class="ic" style="border-color:rgba(0,229,160,.35)">
-      <div style="font-size:19px;font-weight:800;color:var(--accent);letter-spacing:.5px">3종 5세트</div>
-      <div class="ic-val" style="font-size:14px;line-height:1.6;text-align:left;padding-top:8px">
-        · 311푸쉬업 10회<br>· 무릎터치런지 10개<br>· 매달리기 30초
-      </div>
-    </div>
-    <div class="ic" style="border-color:rgba(0,184,255,.35)">
-      <div style="font-size:19px;font-weight:800;color:var(--accent2);letter-spacing:.5px">2종 7세트</div>
-      <div class="ic-val" style="font-size:14px;line-height:1.6;text-align:left;padding-top:8px">
-        · 311푸쉬업 10회<br>· 무릎터치런지 10개
-        <div style="margin-top:6px;color:var(--muted);font-size:11px">※ 매달리기 봉 없을 때 선택</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="rule-box">
-    <div class="rule-inner">
-      <div class="rule-title">📋 인증 규칙</div>
-      <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
-        <div>3종 5세트 <b>또는</b> 2종 7세트 <b>선택</b> 진행</div>
-      </div></div>
-      <div class="rule-item"><div class="rule-dot"></div>운동 후 <b>짝꿍 태그</b>하여 셀카/영상 채팅방 업로드</div>
-      <div class="rule-item"><div class="rule-dot"></div>인증은 <b>오늘 또는 어제 날짜</b>만 가능 (그 이전 날짜는 인증 불가)</div>
-      <div class="rule-item"><div class="rule-dot"></div><b>1회 휴식권</b> 사용 가능 (짝꿍 허락 필요. 단 1번 사용 가능)</div>
-      <div class="rule-item"><div class="rule-dot"></div><b>1회 흑기사권</b> 사용 가능 — 짝꿍이 나 대신 오늘 실시(대신 운동)해준 경우 신청. 신청자는 "신청", 짝꿍은 "실시"로 기록됨 (짝꿍 허락 필요, 단 1번)</div>
-    </div>
-  </div>
-
-  <div class="rule-box" style="margin-top:10px">
-    <div class="rule-inner">
-      <div class="rule-title">🏋️ 운동 방법 자세히 보기</div>
-      <div id="howtoDetail" style="display:flex;flex-direction:column;gap:12px;width:100%;margin-top:10px">
-        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
-          <div><b>① 311 PUSH-UP</b> <span style="color:var(--muted)">(푸쉬업바 추천)</span></div>
-          <div style="margin-top:3px">3초 DOWN → 1초 HOLD → 1초 UP — 내려갈 때 3초, 바닥에서 1초 정지, 올라올 때 1초 템포로 진행</div>
-        </div></div>
-        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
-          <div><b>② 무릎 터치 런지</b></div>
-          <div style="margin-top:3px">런지 동작 시 <b>뒤쪽 무릎이 바닥에 가볍게 닿도록</b> 정확한 자세로 진행</div>
-        </div></div>
-        <div class="rule-item"><div class="rule-dot"></div><div style="flex:1;min-width:0">
-          <div><b>③ 매달리기</b></div>
-          <div style="margin-top:3px">견갑까지 충분히 축을 내린 완전한 매달리기(Dead Hang)로 시작. 쉬워지면 견갑을 잡은 상태(Active Hang)로 단계 업!</div>
-          <div style="margin-top:6px;color:var(--accent2);font-size:12px">→ PIO 5기 목표인 풀업(Pull-up)을 위한 예행 연습입니다</div>
-        </div></div>
-      </div>
-    </div>
-  </div>
-  </div>
-</div>
+  
 
 <!-- ══ 현황 탭 ══ -->
 <div class="page" id="page-status">
@@ -2157,22 +2159,34 @@ async function shareMedia(targetFiles){
   }
 }
 
-function downloadMediaFiles(targetFiles){
+async function downloadMediaFiles(targetFiles){
   var files = targetFiles || selectedFiles;
   if(!files.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
-  files.forEach(function(file, i){
-    var url = URL.createObjectURL(file);
-    var a   = document.createElement('a');
-    a.href  = url;
-    a.download = file.name || ('PIO운동인증_'+(i+1));
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-  });
-  setTimeout(function(){
+
+  var downloads = (window.claude && window.claude.use) ? await window.claude.use('downloads') : null;
+  if(!downloads){
+    alert('이 화면에서는 다운로드를 지원하지 않습니다.\n공유하기를 이용해 주세요.');
+    return;
+  }
+
+  var savedCount = 0;
+  for(var i=0; i<files.length; i++){
+    var file = files[i];
+    var ext = (file.type && file.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
+    var hasExt = file.name && /\.[a-zA-Z0-9]{2,4}$/.test(file.name);
+    var filename = hasExt ? file.name : ('PIO운동인증_'+(i+1)+'.'+ext);
+    try{
+      await downloads.save({ filename: filename, data: file });
+      savedCount++;
+    }catch(e){
+      if(e && e.code === 'declined') break; // 사용자가 취소하면 중단
+      // 그 외 오류는 다음 파일 계속 시도
+    }
+  }
+
+  if(savedCount>0){
     alert('📥 파일이 다운로드됐습니다.\n갤러리 앱에서 열어 공유해 주세요!');
-  }, 500);
+  }
 }
 
 // IndexedDB 기반 사진 삭제 (X 버튼)
