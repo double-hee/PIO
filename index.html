@@ -589,6 +589,7 @@ function isBeforeChallengeStart(){
   return today < CHALLENGE_START_STR;
 }
 var g_sessionPhotos  = {}; // {name_dateKey: [objectURL, ...]} - cert form용
+var g_urlTypeMap = {}; // {objectURL: mimeType} - 슬라이드 뷰어에서 동영상/사진 구분용
 var g_drivePhotoKeys = {}; // {name: {date: [url, ...]}} - 개인조회용 Drive 데이터
 var g_photoNav       = { keys:[], idx:0, user:'' }; // 개인조회 사진 슬라이더
 var g_photoDB = null;
@@ -2042,6 +2043,20 @@ function getCurrentPhotoKey(){
   return name+'_'+parseInt(p[0])+'/'+parseInt(p[1])+'/'+parseInt(p[2]);
 }
 
+// 작은 썸네일에서 탭 시 동영상을 전체화면으로 재생 (썸네일은 네이티브 컨트롤이 잘려서 사용 안함)
+function playVideoFullscreen(video){
+  if(!video) return;
+  video.muted = false;
+  var go = function(){
+    video.controls = true;
+    video.play().catch(function(){});
+  };
+  if(video.requestFullscreen) video.requestFullscreen().then(go).catch(go);
+  else if(video.webkitEnterFullscreen){ video.webkitEnterFullscreen(); go(); } // iOS Safari
+  else if(video.webkitRequestFullscreen){ video.webkitRequestFullscreen(); go(); }
+  else go();
+}
+
 function renderPhotoPreviews(){
   var container = document.getElementById('photoPreviews');
   var addRow    = document.getElementById('photoAddRow');
@@ -2054,7 +2069,12 @@ function renderPhotoPreviews(){
     var isVideo = file.type.startsWith('video/');
     var url = URL.createObjectURL(file);
     if(isVideo){
-      item.innerHTML = '<video src="'+url+'" controls playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover"></video>';
+      // 썸네일이 너무 작아 네이티브 컨트롤이 잘리므로, 정지화면만 표시하고
+      // 탭하면 전체화면으로 재생 (video-tap-fullscreen 클래스로 처리)
+      item.innerHTML = '<video src="'+url+'" playsinline preload="metadata" muted class="video-tap-fullscreen" style="width:100%;height:100%;object-fit:cover;pointer-events:none"></video>'
+        +'<span class="video-icon">▶️</span>';
+      item.style.cursor = 'pointer';
+      item.dataset.videoTap = '1';
     } else {
       item.innerHTML = '<img src="'+url+'" alt="사진" style="-webkit-touch-callout:none;user-select:none;pointer-events:none">';
     }
@@ -2079,8 +2099,12 @@ function renderPhotoPreviews(){
       var removeBtn = document.createElement('button');
       removeBtn.className = 'photo-remove-btn';
       removeBtn.innerHTML = '✕';
-      removeBtn.onclick = (function(i){ return function(){ removeFile(i); }; })(idx);
+      removeBtn.onclick = (function(i){ return function(e){ e.stopPropagation(); removeFile(i); }; })(idx);
       item.appendChild(removeBtn);
+
+      if(isVideo){
+        item.onclick = function(){ playVideoFullscreen(this.querySelector('video')); };
+      }
     }
 
     container.appendChild(item);
@@ -2347,7 +2371,11 @@ async function getPhotoUrls(key){
   // IndexedDB 단일 소스 (앱 시작 시 Drive에서 이미 전체 복원됨)
   var blobs = await loadPhotoDB(key);
   if(blobs && blobs.length){
-    urls = blobs.map(function(b){ return URL.createObjectURL(b); });
+    urls = blobs.map(function(b){
+      var u = URL.createObjectURL(b);
+      g_urlTypeMap[u] = b.type || '';
+      return u;
+    });
     g_sessionPhotos[key] = urls;
     return urls;
   }
@@ -2357,7 +2385,13 @@ async function getPhotoUrls(key){
 function buildSlideImgs(urls){
   var h='';
   for(var i=0;i<urls.length;i++){
-    h+='<img src="'+urls[i]+'" style="width:100%;border-radius:10px;display:block;margin-bottom:10px">';
+    var u = urls[i];
+    var isVideo = g_urlTypeMap[u] && g_urlTypeMap[u].indexOf('video/')===0;
+    if(isVideo){
+      h+='<video src="'+u+'" controls playsinline preload="metadata" style="width:100%;border-radius:10px;display:block;margin-bottom:10px;max-height:70vh"></video>';
+    } else {
+      h+='<img src="'+u+'" style="width:100%;border-radius:10px;display:block;margin-bottom:10px">';
+    }
   }
   return h;
 }
@@ -2521,6 +2555,7 @@ async function preloadAdjacentSlides(){
 
 function preDecodeImages(urls){
   urls.forEach(function(url){
+    if(g_urlTypeMap[url] && g_urlTypeMap[url].indexOf('video/')===0) return; // 동영상은 디코딩 스킵
     var img = new Image();
     img.src = url; // 브라우저가 백그라운드에서 디코딩
   });
@@ -2574,7 +2609,11 @@ async function loadAndCache(key){
   if(g_sessionPhotos[key]&&g_sessionPhotos[key].length) return g_sessionPhotos[key];
   var blobs = await loadPhotoDB(key);
   if(blobs&&blobs.length){
-    var urls=blobs.map(function(b){return URL.createObjectURL(b);});
+    var urls=blobs.map(function(b){
+      var u = URL.createObjectURL(b);
+      g_urlTypeMap[u] = b.type || '';
+      return u;
+    });
     g_sessionPhotos[key]=urls; preDecodeImages(urls); return urls;
   }
   return null;
