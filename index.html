@@ -1057,10 +1057,26 @@ function takeSharedFiles(){
   });
 }
 
+// 서비스워커가 공유 요청을 실제로 가로챘는지 진단용 로그
+function checkShareDebugMarker(){
+  openShareInboxDB().then(function(db){
+    var tx = db.transaction('inbox','readonly');
+    var getReq = tx.objectStore('inbox').get('debug');
+    getReq.onsuccess = function(){
+      var info = getReq.result;
+      if(info){
+        dbg('[SW진단] pathname='+info.pathname+' fileCount='+info.fileCount+(info.error?' error='+info.error:''),'warn');
+      }
+    };
+  }).catch(function(){});
+}
+
 async function processSharedFiles(){
+  checkShareDebugMarker();
   try{
     var files = await takeSharedFiles();
     if(!files || !files.length) return;
+    if(!g_myName){ dbg('공유파일 있지만 g_myName 없음 - 처리 보류','err'); return; }
 
     dbg('공유받은 파일 '+files.length+'개 처리 시작','warn');
 
@@ -1068,8 +1084,23 @@ async function processSharedFiles(){
     switchTab('cert');
     populateCertDateOptions(); // 오늘 날짜가 기본 선택됨
 
-    // 잠시 후(탭 전환/렌더 완료 후) 파일 추가
+    // 이름 select는 비동기(getNamePairs)로 채워지므로, 경쟁상태 방지를 위해
+    // 내 이름을 직접·동기적으로 확정 (g_myName은 항상 유효한 옵션)
+    var certNameEl = document.getElementById('certName');
+    if(certNameEl){
+      certNameEl.disabled = false;
+      if(![].some.call(certNameEl.options, function(o){ return o.value===g_myName; })){
+        var opt = document.createElement('option');
+        opt.value = g_myName; opt.textContent = g_myName;
+        certNameEl.appendChild(opt);
+      }
+      certNameEl.value = g_myName;
+      certNameEl.dispatchEvent(new Event('change'));
+    }
+
+    // 이름/날짜가 확정된 다음 파일 추가 (렌더 한 틱 대기)
     setTimeout(function(){
+      dbg('공유파일 등록 키: '+getCurrentPhotoKey(),'ok');
       onFilesSelected(files);
       var videoCount = Array.prototype.filter.call(files, function(f){
         return f.type && f.type.indexOf('video')===0;
@@ -2043,18 +2074,15 @@ function getCurrentPhotoKey(){
   return name+'_'+parseInt(p[0])+'/'+parseInt(p[1])+'/'+parseInt(p[2]);
 }
 
-// 작은 썸네일에서 탭 시 동영상을 전체화면으로 재생 (썸네일은 네이티브 컨트롤이 잘려서 사용 안함)
-function playVideoFullscreen(video){
-  if(!video) return;
-  video.muted = false;
-  var go = function(){
-    video.controls = true;
-    video.play().catch(function(){});
-  };
-  if(video.requestFullscreen) video.requestFullscreen().then(go).catch(go);
-  else if(video.webkitEnterFullscreen){ video.webkitEnterFullscreen(); go(); } // iOS Safari
-  else if(video.webkitRequestFullscreen){ video.webkitRequestFullscreen(); go(); }
-  else go();
+// 운동인증에서 선택한 사진/동영상을 개인조회와 동일한 모달로 열기
+function openCertMediaModal(){
+  if(!selectedFiles.length) return;
+  var urls = selectedFiles.map(function(f){
+    var u = URL.createObjectURL(f);
+    g_urlTypeMap[u] = f.type || '';
+    return u;
+  });
+  openModal('사진 ('+selectedFiles.length+')', buildSlideImgs(urls));
 }
 
 function renderPhotoPreviews(){
@@ -2103,7 +2131,7 @@ function renderPhotoPreviews(){
       item.appendChild(removeBtn);
 
       if(isVideo){
-        item.onclick = function(){ playVideoFullscreen(this.querySelector('video')); };
+        item.onclick = function(){ openCertMediaModal(); };
       }
     }
 
