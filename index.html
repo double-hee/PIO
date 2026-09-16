@@ -1036,12 +1036,6 @@ document.getElementById('certName').addEventListener('change',function(){
   updatePhotoSectionVisibility(); // 내 이름일 때만 사진 섹션 표시
   loadPhotosForDate(); // IndexedDB에서 즉시 로드
   checkAlreadyCertified();
-  // 참여인원 아닐 시 경고
-  if(nv && allParticipants.length>0){
-    var found=allParticipants.some(function(p){return p.name===nv;});
-    if(!found){showCertStatus('err','⛔ 참여 인원이 아닙니다.');}
-    else{document.getElementById('certStatus').className='cstatus';}
-  }
   // 이름 변경 시 휴식권 상태 재확인
   g_restUsed=false; g_restDate=null;
   var row=document.getElementById('restRow'), cb=document.getElementById('restCb');
