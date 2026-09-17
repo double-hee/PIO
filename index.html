@@ -2964,6 +2964,35 @@ function toggleDebug(){
   p.style.display = willShow ? 'block' : 'none';
   if(willShow) renderDebugPanel(); // 열 때 전체 로그(초기 단계 포함) 다시 렌더링
 }
+
+async function copyDebugLog(){
+  var text = g_debugLog.map(function(l){ return l.t+' '+l.msg; }).join('\n');
+  if(!text){ alert('복사할 로그가 없습니다.'); return; }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error('clipboard API 없음');
+    }
+    showToast('📋 디버그 로그 '+g_debugLog.length+'줄 복사됨');
+  }catch(e){
+    // 폴백: 임시 textarea + execCommand
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if(ok) showToast('📋 디버그 로그 '+g_debugLog.length+'줄 복사됨');
+      else throw new Error('execCommand 실패');
+    }catch(e2){
+      alert('클립보드 복사에 실패했습니다: '+e2.message);
+    }
+  }
+}
 function dbg(msg, type){
   var t=new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
   var color = type==='ok'?'#00e5a0':type==='err'?'#ff6b6b':type==='warn'?'#ffd700':'#8892a4';
@@ -3288,7 +3317,13 @@ function formatDisp(ds){var p=ds.split('/');return p.length===3?p[0]+'. '+p[1]+'
     <button onclick='toggleDebug()' style='background:none;border:none;color:rgba(255,255,255,.12);font-size:10px;cursor:pointer;padding:4px 12px'>🔍 디버그</button>
   </div>
   <div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#0d1520;border-top:1px solid #1e2d45;padding:12px;font-size:11px;font-family:monospace;max-height:200px;overflow-y:auto;z-index:8888">
-    <div style="color:#00e5a0;margin-bottom:6px">🔍 디버그 로그 <span onclick="toggleDebug()" style="cursor:pointer;color:#6b7a99;float:right">✕</span></div>
+    <div style="color:#00e5a0;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+      <span>🔍 디버그 로그</span>
+      <span style="display:flex;align-items:center;gap:10px">
+        <span onclick="copyDebugLog()" style="cursor:pointer;color:#00b8ff;font-weight:700">📋 복사</span>
+        <span onclick="toggleDebug()" style="cursor:pointer;color:#6b7a99">✕</span>
+      </span>
+    </div>
     <div id="debugLog"></div>
   </div>
 
