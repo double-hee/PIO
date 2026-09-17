@@ -509,10 +509,10 @@
         <table class="stbl">
           <thead>
             <tr>
-              <th>순위</th><th>이름</th><th>종합</th><th>실시</th><th>미실시</th><th>%</th><th>휴식권</th><th>최근인증일</th><th>오늘</th>
+              <th>순위</th><th>이름</th><th>종합</th><th>실시</th><th>미실시</th><th>%</th><th>휴식권</th><th>🥷흑기사</th><th>최근인증일</th><th>오늘</th>
             </tr>
           </thead>
-          <tbody id="tableBody"><tr><td colspan="9" style="padding:32px;color:var(--muted)">로딩 중...</td></tr></tbody>
+          <tbody id="tableBody"><tr><td colspan="10" style="padding:32px;color:var(--muted)">로딩 중...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -931,17 +931,16 @@ async function preloadTodayPhoto(){
     var j = await res.json();
     if(j.success && j.photos && j.photos[todayStr] && j.photos[todayStr].length){
       var items = j.photos[todayStr];
-      var downloaded = [];
-      for(var i=0;i<items.length;i++){
-        var it=items[i];
+      var downloadResults = await Promise.all(items.map(async function(it){
         var url = typeof it==='object'?it.url:it;
         var driveId = typeof it==='object'?it.driveId:(extractDriveId(it)||'');
         try{
-          var r = await fetch(url); var b = await r.blob();
-          downloaded.push(b);
+          var r = await fetchWithTimeout(url, null, 15000); var b = await r.blob();
           if(driveId) addDriveEntry(key, driveId, url);
-        }catch(e){}
-      }
+          return b;
+        }catch(e){ return null; }
+      }));
+      var downloaded = downloadResults.filter(Boolean);
       if(downloaded.length){ await savePhotoDB(key, downloaded); dbg('오늘 사진 Drive에서 복원: '+downloaded.length+'장','ok'); }
     } else {
       dbg('오늘 사진 없음 (Drive)','ok');
@@ -1725,20 +1724,22 @@ function renderTable(){
     var rankDisp  = rank; // 항상 숫자
     var rankStyle = rank<=3 ? 'font-size:13px;font-weight:700' : 'color:var(--muted);font-size:12px';
     var nameMedal = isAllDone ? ' <span style="font-size:14px">🏅</span>' : '';
-    var nameBK = p.blackKnightUsed ? ' <span style="font-size:12px" title="흑기사권 신청 사용">🥷</span>' : '';
+    var bkCls = p.blackKnightUsed ? 'rest-y' : '';
+    var bkDisp = p.blackKnightUsed ? '1' : '0';
     return '<tr class="'+rowCls+'">'
       +'<td style="text-align:center;'+rankStyle+'">'+rankDisp+'</td>'
-      +'<td class="col-name">'+p.name+nameMedal+nameBK+'</td>'
+      +'<td class="col-name">'+p.name+nameMedal+'</td>'
       +'<td>'+p.total+'</td>'
       +'<td>'+p.workout+'</td>'
       +'<td>'+p.missed+'</td>'
       +'<td class="col-pct">'+pctDisp+'%</td>'
       +'<td class="'+restCls+'">'+p.rest+'</td>'
+      +'<td class="'+bkCls+'" title="'+(p.blackKnightDate||'')+'">'+bkDisp+'</td>'
       +'<td style="font-size:11px;white-space:nowrap">'+lastFmt+'</td>'
       +'<td class="'+todayCls+'">'+(p.todayDone?'1':'0')+'</td>'
       +'</tr>';
   }).join('');
-  document.getElementById('tableBody').innerHTML=html||'<tr><td colspan="9" style="padding:24px;color:var(--muted)">데이터 없음</td></tr>';
+  document.getElementById('tableBody').innerHTML=html||'<tr><td colspan="10" style="padding:24px;color:var(--muted)">데이터 없음</td></tr>';
 }
 
 /* ══ 개인 조회 ══ */
@@ -1810,10 +1811,10 @@ async function searchPersonal(){
   document.getElementById('personalResult').innerHTML=
     '<div class="personal-hdr">'
     +'<span class="personal-name-lbl">'+p.name+'</span>'
-    +'<span class="personal-summary">'+p.total+'일 달성 · '+p.pct+'% · '+(p.restUsed?'휴식권 사용':'휴식권 미사용')+'</span>'
+    +'<span class="personal-summary">'+p.total+'일 달성 · '+p.pct+'% · '+(p.restUsed?'휴식권 사용':'휴식권 미사용')+' · '+(p.blackKnightUsed?'🥷흑기사 사용':'🥷흑기사 미사용')+'</span>'
     +'</div>'
     +'<div class="ptbl-scroll"><table class="ptbl">'
-    +'<thead><tr><th>날짜</th><th style="text-align:center">사진</th><th>체크</th><th>휴식권 사용</th></tr></thead>'
+    +'<thead><tr><th>날짜</th><th style="text-align:center">사진</th><th>체크</th><th>휴식권·흑기사</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table></div>';
 }
 
@@ -2908,6 +2909,17 @@ function updatePhotoSectionVisibility(){
   photoSection.style.display = (name === g_myName) ? 'flex' : 'none';
 }
 
+/* ── 네트워크가 응답 없이 멈추는 것을 방지하는 타임아웃 fetch ── */
+function fetchWithTimeout(url, opts, ms){
+  ms = ms || 15000;
+  return Promise.race([
+    fetch(url, opts),
+    new Promise(function(_, reject){
+      setTimeout(function(){ reject(new Error('timeout')); }, ms);
+    })
+  ]);
+}
+
 /* ── Drive 복원 (IndexedDB 비었을 때만) ── */
 async function restoreFromDriveIfNeeded(){
   if(!DRIVE_SCRIPT_URL || !g_myName) return;
@@ -2919,7 +2931,8 @@ async function restoreFromDriveIfNeeded(){
     return;
   }
 
-  dbg('Drive 전체 복원 시작 (백그라운드)','warn');
+  var t0 = Date.now();
+  dbg('Drive 전체 복원 시작 (백그라운드, 병렬)','warn');
   showDriveStatus('📡 Drive에서 내 사진 전체 복원 중...');
   try{
     var res = await fetch(DRIVE_SCRIPT_URL,{
@@ -2933,47 +2946,57 @@ async function restoreFromDriveIfNeeded(){
     }
 
     var dates = Object.keys(j.photos);
-    var restoredDates = 0, restoredPhotos = 0, skippedDates = 0;
+    var restoredDates = 0, restoredPhotos = 0, skippedDates = 0, failedDates = 0;
 
-    for(var i=0; i<dates.length; i++){
-      var rawDate = dates[i];
+    // 날짜별 복원 작업을 병렬로 실행 (기존: 순차 → 매우 느림)
+    var tasks = dates.map(async function(rawDate){
       var nd = normDateStr(rawDate);
       var items = j.photos[rawDate] || [];
-      if(!items.length) continue;
+      if(!items.length) return;
 
       var key = g_myName + '_' + nd;
 
       // 이미 IndexedDB에 있는 날짜(예: 스플래시에서 미리 로드된 오늘)는 재다운로드 스킵
       var existing = await loadPhotoDB(key);
-      if(existing && existing.length){ skippedDates++; continue; }
+      if(existing && existing.length){ skippedDates++; return; }
 
-      var blobs = [];
-      for(var k=0; k<items.length; k++){
-        var it = items[k];
+      // 한 날짜 안의 사진들도 병렬로 다운로드
+      var blobResults = await Promise.all(items.map(async function(it){
         var url = typeof it==='object' ? it.url : it;
         var driveId = typeof it==='object' ? it.driveId : (extractDriveId(it)||'');
         try{
-          var r = await fetch(url);
+          var r = await fetchWithTimeout(url, null, 15000);
           var b = await r.blob();
-          blobs.push(b);
           if(driveId) addDriveEntry(key, driveId, url); // 삭제 시 필요한 매핑 보존
-        }catch(e){ dbg('사진 다운로드 실패: '+url,'err'); }
-      }
+          return b;
+        }catch(e){
+          dbg('사진 다운로드 실패: '+url,'err');
+          return null;
+        }
+      }));
+
+      var blobs = blobResults.filter(Boolean);
       if(blobs.length){
         await savePhotoDB(key, blobs);
         restoredDates++;
         restoredPhotos += blobs.length;
+      } else if(items.length){
+        failedDates++;
       }
-    }
+    });
+
+    await Promise.all(tasks);
 
     localStorage.setItem(flagKey, '1');
+    var elapsed = Date.now()-t0;
     showDriveStatus('✅ '+restoredDates+'개 날짜, '+restoredPhotos+'장 복원 완료', 4000);
-    dbg('Drive→IndexedDB 전체 복원 완료: '+restoredDates+'개 날짜 신규, '+skippedDates+'개 날짜 스킵(이미있음)','ok');
+    dbg('Drive→IndexedDB 전체 복원 완료 ('+elapsed+'ms): '+restoredDates+'개 날짜 신규, '+skippedDates+'개 스킵, '+failedDates+'개 실패','ok');
     loadPhotosForDate(); // 현재 보고 있는 날짜 갱신
     checkAlreadyCertified();
   }catch(e){
     showDriveStatus('❌ Drive 연결 실패', 3000);
     dbg('Drive 복원 오류: '+e.message,'err');
+    // 완전 실패 시 플래그를 세우지 않아 다음 접속 때 재시도됨
   }
 }
 
