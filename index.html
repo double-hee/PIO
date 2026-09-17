@@ -2974,7 +2974,6 @@ async function copyDebugLog(){
     } else {
       throw new Error('clipboard API 없음');
     }
-    showToast('📋 디버그 로그 '+g_debugLog.length+'줄 복사됨');
   }catch(e){
     // 폴백: 임시 textarea + execCommand
     try{
@@ -2986,8 +2985,7 @@ async function copyDebugLog(){
       ta.focus(); ta.select();
       var ok = document.execCommand('copy');
       document.body.removeChild(ta);
-      if(ok) showToast('📋 디버그 로그 '+g_debugLog.length+'줄 복사됨');
-      else throw new Error('execCommand 실패');
+      if(!ok) throw new Error('execCommand 실패');
     }catch(e2){
       alert('클립보드 복사에 실패했습니다: '+e2.message);
     }
@@ -3318,11 +3316,11 @@ function formatDisp(ds){var p=ds.split('/');return p.length===3?p[0]+'. '+p[1]+'
   </div>
   <div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#0d1520;border-top:1px solid #1e2d45;padding:12px;font-size:11px;font-family:monospace;max-height:200px;overflow-y:auto;z-index:8888">
     <div style="color:#00e5a0;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
-      <span>🔍 디버그 로그</span>
       <span style="display:flex;align-items:center;gap:10px">
+        <span>🔍 디버그 로그</span>
         <span onclick="copyDebugLog()" style="cursor:pointer;color:#00b8ff;font-weight:700">📋 복사</span>
-        <span onclick="toggleDebug()" style="cursor:pointer;color:#6b7a99">✕</span>
       </span>
+      <span onclick="toggleDebug()" style="cursor:pointer;color:#6b7a99">✕</span>
     </div>
     <div id="debugLog"></div>
   </div>
