@@ -848,7 +848,7 @@ function renderProgressRibbon(){
       var ds = d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
       var isDone = person && person.byDate && person.byDate[ds]===false;
       if(isDone) doneCount++;
-      color = isDone ? '#639922' : '#E24B4A';
+      color = isDone ? '#39ff14' : '#E24B4A';
     } else {
       color = '#D3D1C7';
     }
@@ -1381,8 +1381,21 @@ async function submitCert(){
   }
   // 제출 후 체크 상태 초기화
   restChecked=false; blackKnightChecked=false;
+  // 체크박스 UI도 해제 상태로 복구
+  var rRow=document.getElementById('restRow'), rCb=document.getElementById('restCb');
+  if(rRow) rRow.classList.remove('checked');
+  if(rCb)  rCb.classList.remove('checked');
+  var bRow=document.getElementById('bkRow'), bCb=document.getElementById('bkCb');
+  if(bRow) bRow.classList.remove('checked');
+  if(bCb)  bCb.classList.remove('checked');
+
   dbg('제출 완료 - 로컬 데이터 즉시 반영: '+nv+' '+dateKey,'ok');
   checkAlreadyCertified();
+  renderProgressRibbon();      // 진행률 띠 즉시 갱신
+  updatePartnerTodayStatus();  // 짝꿍 오늘 인증 여부 갱신
+  try { renderTable(); } catch(e){}  // 현황표도 즉시 반영
+  updateCertRestStatus();
+  updateCertBlackKnightStatus();
 }
 
 
