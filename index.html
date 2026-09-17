@@ -1023,96 +1023,9 @@ function loadStatusAsync(){
     preloadTodayPhoto().then(function(){
       dbg('오늘 사진 로딩 완료 - 화면 갱신','ok');
       loadPhotosForDate();
-      processSharedFiles(); // 갤러리에서 공유하기로 넘어온 파일 처리
     });
   });
 })();
-
-/* ── 갤러리에서 "공유하기"로 넘어온 파일 처리 (Web Share Target) ── */
-function openShareInboxDB(){
-  return new Promise(function(resolve, reject){
-    var req = indexedDB.open('pio-share-inbox', 1);
-    req.onupgradeneeded = function(){
-      var db = req.result;
-      if(!db.objectStoreNames.contains('inbox')) db.createObjectStore('inbox');
-    };
-    req.onsuccess = function(){ resolve(req.result); };
-    req.onerror = function(){ reject(req.error); };
-  });
-}
-
-function takeSharedFiles(){
-  return new Promise(function(resolve){
-    openShareInboxDB().then(function(db){
-      var tx = db.transaction('inbox','readwrite');
-      var store = tx.objectStore('inbox');
-      var getReq = store.get('pending');
-      getReq.onsuccess = function(){
-        var files = getReq.result || null;
-        if(files) store.delete('pending'); // 한 번 가져가면 비움
-        tx.oncomplete = function(){ resolve(files); };
-      };
-      getReq.onerror = function(){ resolve(null); };
-    }).catch(function(){ resolve(null); });
-  });
-}
-
-// 서비스워커가 공유 요청을 실제로 가로챘는지 진단용 로그
-function checkShareDebugMarker(){
-  openShareInboxDB().then(function(db){
-    var tx = db.transaction('inbox','readonly');
-    var getReq = tx.objectStore('inbox').get('debug');
-    getReq.onsuccess = function(){
-      var info = getReq.result;
-      if(info){
-        dbg('[SW진단] pathname='+info.pathname+' fileCount='+info.fileCount+(info.error?' error='+info.error:''),'warn');
-      }
-    };
-  }).catch(function(){});
-}
-
-async function processSharedFiles(){
-  checkShareDebugMarker();
-  try{
-    var files = await takeSharedFiles();
-    if(!files || !files.length) return;
-    if(!g_myName){ dbg('공유파일 있지만 g_myName 없음 - 처리 보류','err'); return; }
-
-    dbg('공유받은 파일 '+files.length+'개 처리 시작','warn');
-
-    // 운동인증 탭으로 이동 + 오늘 날짜로 설정
-    switchTab('cert');
-    populateCertDateOptions(); // 오늘 날짜가 기본 선택됨
-
-    // 이름 select는 비동기(getNamePairs)로 채워지므로, 경쟁상태 방지를 위해
-    // 내 이름을 직접·동기적으로 확정 (g_myName은 항상 유효한 옵션)
-    var certNameEl = document.getElementById('certName');
-    if(certNameEl){
-      certNameEl.disabled = false;
-      if(![].some.call(certNameEl.options, function(o){ return o.value===g_myName; })){
-        var opt = document.createElement('option');
-        opt.value = g_myName; opt.textContent = g_myName;
-        certNameEl.appendChild(opt);
-      }
-      certNameEl.value = g_myName;
-      certNameEl.dispatchEvent(new Event('change'));
-    }
-
-    // 이름/날짜가 확정된 다음 파일 추가 (렌더 한 틱 대기)
-    setTimeout(function(){
-      dbg('공유파일 등록 키: '+getCurrentPhotoKey(),'ok');
-      onFilesSelected(files);
-      var videoCount = Array.prototype.filter.call(files, function(f){
-        return f.type && f.type.indexOf('video')===0;
-      }).length;
-      showToast(videoCount>0
-        ? '📥 공유된 영상 '+files.length+'개를 오늘 날짜로 추가했어요'
-        : '📥 공유된 사진 '+files.length+'장을 오늘 날짜로 추가했어요');
-    }, 300);
-  }catch(e){
-    dbg('공유 파일 처리 오류: '+e.message,'err');
-  }
-}
 
 /* ── 날짜/이름 초기화 ── */
 function populateCertDateOptions(){
