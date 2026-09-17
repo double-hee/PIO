@@ -2339,13 +2339,30 @@ function buildSlideImgs(urls){
 function buildSlideHtml(urls){
   // photoWrapper: overflow:hidden으로 스와이프 애니메이션 클리핑
   // photoTrack: prev/current/next 3개 슬라이드를 가로로 배치, transform으로 이동
-  return '<div id="photoWrapper" style="overflow:hidden;position:relative">'
+  return '<div id="photoWrapper" style="overflow:hidden;position:relative" '
+      + 'onmouseenter="showPhotoNavBtns(true)" onmouseleave="showPhotoNavBtns(false)">'
     + '<div id="photoTrack" style="display:flex;">'
       + '<div id="photoPrev" class="pslide" style="flex:0 0 auto;padding:0 4px;box-sizing:border-box"></div>'
       + '<div id="photoSlide" class="pslide" style="flex:0 0 auto;padding:0 4px;box-sizing:border-box">'+buildSlideImgs(urls)+'</div>'
       + '<div id="photoNext" class="pslide" style="flex:0 0 auto;padding:0 4px;box-sizing:border-box"></div>'
     + '</div>'
+    + '<button id="photoNavPrev" onclick="shiftTrack(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,.5);color:#fff;font-size:18px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s;z-index:5">‹</button>'
+    + '<button id="photoNavNext" onclick="shiftTrack(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:none;background:rgba(0,0,0,.5);color:#fff;font-size:18px;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .15s;z-index:5">›</button>'
   + '</div>';
+}
+
+// 마우스를 사진 영역에 올리면 좌/우 넘기기 버튼 표시 (양 끝은 자동 숨김)
+function showPhotoNavBtns(show){
+  var prevBtn = document.getElementById('photoNavPrev');
+  var nextBtn = document.getElementById('photoNavNext');
+  if(!prevBtn || !nextBtn) return;
+  var nav = g_photoNav;
+  var hasPrev = show && nav.idx > 0;
+  var hasNext = show && nav.idx < nav.keys.length - 1;
+  prevBtn.style.opacity = hasPrev ? '1' : '0';
+  prevBtn.style.pointerEvents = hasPrev ? 'auto' : 'none';
+  nextBtn.style.opacity = hasNext ? '1' : '0';
+  nextBtn.style.pointerEvents = hasNext ? 'auto' : 'none';
 }
 
 function photoModalTitle(key){
@@ -2599,6 +2616,7 @@ async function shiftTrack(dir){
     for(var i=0;i<dots.length;i++)
       dots[i].style.background = (i===nav.idx?'var(--accent)':'var(--border)');
   }
+  showPhotoNavBtns(true); // 이동 후 경계(첫/마지막) 기준으로 버튼 상태 갱신
   return true;
 }
 
