@@ -422,7 +422,7 @@
           <div class="rest-row" id="restRow" onclick="toggleRest()" style="flex:1">
             <div class="rest-cb" id="restCb"><span class="rest-ci">✓</span></div>
             <div>
-              <div class="rest-title" style="font-size:14px">🎫 휴식권</div>
+              <div class="rest-title" style="font-size:14px">🌴 휴식권</div>
             </div>
           </div>
           <div class="rest-row" id="bkRow" onclick="toggleBlackKnight()" style="flex:1">
@@ -509,7 +509,7 @@
         <table class="stbl">
           <thead>
             <tr>
-              <th>순위</th><th>이름</th><th>종합</th><th>실시</th><th>미실시</th><th>%</th><th>휴식권</th><th>🥷흑기사</th><th>최근인증일</th><th>오늘</th>
+              <th>순위</th><th>이름</th><th>종합</th><th>실시</th><th>미실시</th><th>%</th><th>🌴휴식권</th><th>🥷흑기사</th><th>최근인증일</th><th>오늘</th>
             </tr>
           </thead>
           <tbody id="tableBody"><tr><td colspan="10" style="padding:32px;color:var(--muted)">로딩 중...</td></tr></tbody>
@@ -1087,7 +1087,7 @@ document.getElementById('certName').addEventListener('change',function(){
   row.style.opacity=''; row.style.cursor='';
   cb.style.background=''; cb.style.borderColor='';
   var title=row.querySelector('.rest-title'), desc=row.querySelector('.rest-desc');
-  if(title) title.textContent='🎫 휴식권 사용';
+  if(title) title.textContent='🌴 휴식권 사용';
   if(desc)  desc.textContent='짝꿍 허락 후 짝꿍이 대신 인증하는 경우에만 체크 · 100일 동안 1회 허용!';
   row.classList.remove('checked'); cb.classList.remove('checked'); restChecked=false;
   updateCertRestStatus();
@@ -1129,7 +1129,7 @@ function applyRestDisabled() {
   // 텍스트 업데이트
   var title = row.querySelector('.rest-title');
   var desc  = row.querySelector('.rest-desc');
-  if (title) title.textContent = '🎫 휴식권 사용 불가';
+  if (title) title.textContent = '🌴 휴식권 사용 불가';
   if (desc)  desc.textContent  = g_restDate ? g_restDate + '에 휴식권을 이미 사용하셨습니다.' : '이미 휴식권을 사용하셨습니다.';
 }
 
@@ -1796,7 +1796,7 @@ async function searchPersonal(){
     var rowClick = hasPhoto
       ? 'style="cursor:pointer" data-key="'+photoKey+'" onclick="onPhotoRowTap(event,this)"'
       : '';
-    var restCellHtml = r.isRest ? '<span class="rest-mark">휴식권</span>'
+    var restCellHtml = r.isRest ? '<span class="rest-mark">🌴휴식권</span>'
       : r.isBkApply ? '<span class="rest-mark" style="color:#b39cff">🥷흑기사 신청</span>'
       : r.isBkPerform ? '<span class="rest-mark" style="color:#00b8ff">🥷흑기사 실시</span>'
       : '';
@@ -1811,10 +1811,10 @@ async function searchPersonal(){
   document.getElementById('personalResult').innerHTML=
     '<div class="personal-hdr">'
     +'<span class="personal-name-lbl">'+p.name+'</span>'
-    +'<span class="personal-summary">'+p.total+'일 달성 · '+p.pct+'% · '+(p.restUsed?'휴식권 사용':'휴식권 미사용')+' · '+(p.blackKnightUsed?'🥷흑기사 사용':'🥷흑기사 미사용')+'</span>'
+    +'<span class="personal-summary">'+p.total+'일 달성 · '+p.pct+'% · '+(p.restUsed?'🌴휴식권 사용':'🌴휴식권 미사용')+' · '+(p.blackKnightUsed?'🥷흑기사 사용':'🥷흑기사 미사용')+'</span>'
     +'</div>'
     +'<div class="ptbl-scroll"><table class="ptbl">'
-    +'<thead><tr><th>날짜</th><th style="text-align:center">사진</th><th>체크</th><th>휴식권·흑기사</th></tr></thead>'
+    +'<thead><tr><th>날짜</th><th style="text-align:center">사진</th><th>체크</th><th>🌴휴식권·🥷흑기사</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table></div>';
 }
 
@@ -2251,7 +2251,11 @@ async function saveSessionPhotos(){
   var key = getCurrentPhotoKey();
   if(!key) return;
   if(selectedFiles.length){
-    g_sessionPhotos[key] = selectedFiles.map(function(f){ return URL.createObjectURL(f); });
+    g_sessionPhotos[key] = selectedFiles.map(function(f){
+      var u = URL.createObjectURL(f);
+      g_urlTypeMap[u] = f.type || '';
+      return u;
+    });
     await savePhotoDB(key, selectedFiles); // IndexedDB 저장 완료 확실히 대기
     // Drive 업로드 (비동기 백그라운드)
     if(DRIVE_SCRIPT_URL){
@@ -2332,11 +2336,27 @@ function buildSlideImgs(urls){
     if(isVideo){
       h+='<video src="'+u+'" controls playsinline preload="auto" style="width:100%;border-radius:10px;display:block;margin-bottom:10px;max-height:70vh"></video>';
     } else {
-      h+='<img src="'+u+'" style="width:100%;border-radius:10px;display:block;margin-bottom:10px">';
+      // 타입 정보가 없어 img로 만들었는데 실제로는 동영상인 경우 → onerror에서 video로 자동 교체
+      h+='<img src="'+u+'" style="width:100%;border-radius:10px;display:block;margin-bottom:10px" onerror="swapToVideo(this)">';
     }
   }
   return h;
 }
+
+// img 로드 실패 시 동영상일 가능성이 높으므로 video 태그로 교체 (타입정보 누락 대비 안전장치)
+function swapToVideo(img){
+  if(!img || img.dataset.swapped) return;
+  img.dataset.swapped = '1';
+  var v = document.createElement('video');
+  v.src = img.src;
+  v.controls = true;
+  v.playsInline = true;
+  v.preload = 'auto';
+  v.style.cssText = 'width:100%;border-radius:10px;display:block;margin-bottom:10px;max-height:70vh';
+  g_urlTypeMap[img.src] = 'video/mp4'; // 다음 렌더링부터는 바로 video로
+  if(img.parentNode) img.parentNode.replaceChild(v, img);
+}
+
 function buildSlideHtml(urls){
   // photoWrapper: overflow:hidden으로 스와이프 애니메이션 클리핑
   // photoTrack: prev/current/next 3개 슬라이드를 가로로 배치, transform으로 이동
@@ -2501,7 +2521,11 @@ async function preloadAdjacentSlides(){
     if(!g_sessionPhotos[key] || !g_sessionPhotos[key].length){
       var blobs = await loadPhotoDB(key);
       if(blobs && blobs.length){
-        var urls = blobs.map(function(b){ return URL.createObjectURL(b); });
+        var urls = blobs.map(function(b){
+          var u = URL.createObjectURL(b);
+          g_urlTypeMap[u] = b.type || '';
+          return u;
+        });
         g_sessionPhotos[key] = urls;
         // 이미지 객체로 미리 디코딩 (브라우저 캐시에 올림)
         preDecodeImages(urls);
