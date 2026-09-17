@@ -2329,7 +2329,7 @@ function buildSlideImgs(urls){
     var u = urls[i];
     var isVideo = g_urlTypeMap[u] && g_urlTypeMap[u].indexOf('video/')===0;
     if(isVideo){
-      h+='<video src="'+u+'" controls playsinline preload="metadata" style="width:100%;border-radius:10px;display:block;margin-bottom:10px;max-height:70vh"></video>';
+      h+='<video src="'+u+'" controls playsinline preload="auto" style="width:100%;border-radius:10px;display:block;margin-bottom:10px;max-height:70vh"></video>';
     } else {
       h+='<img src="'+u+'" style="width:100%;border-radius:10px;display:block;margin-bottom:10px">';
     }
@@ -2625,13 +2625,22 @@ function mountAdjacentSlides(){ /* flex-track 방식에서는 initTrack()이 처
 function waitImagesAndMount(){
   var wrapper = document.getElementById('photoWrapper');
   if(!wrapper){ initTrack(); return; }
-  var imgs = wrapper.querySelectorAll('#photoSlide img');
-  if(!imgs.length){ initTrack(); return; }
-  var total=imgs.length, done=0;
+  var imgs   = wrapper.querySelectorAll('#photoSlide img');
+  var videos = wrapper.querySelectorAll('#photoSlide video');
+  var total = imgs.length + videos.length, done = 0;
+  if(!total){ initTrack(); return; }
   function onLoad(){ if(++done>=total) initTrack(); }
   for(var i=0;i<imgs.length;i++){
     if(imgs[i].complete) onLoad();
     else{ imgs[i].onload=onLoad; imgs[i].onerror=onLoad; }
+  }
+  for(var j=0;j<videos.length;j++){
+    // readyState>=2: 최소 첫 프레임(현재 재생 위치의 데이터)까지 확보된 상태
+    if(videos[j].readyState>=2) onLoad();
+    else{
+      videos[j].addEventListener('loadeddata', onLoad, {once:true});
+      videos[j].addEventListener('error', onLoad, {once:true});
+    }
   }
 }
 
