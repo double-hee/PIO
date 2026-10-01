@@ -1384,8 +1384,8 @@ async function submitCert(){
   if(usedBK && bkPartner){
     var partnerP = allParticipants.find(function(p){return p.name===bkPartner;});
     if(partnerP){
-      if(!partnerP.byDate) partnerP.byDate={};
-      partnerP.byDate[dateKey]='bk-perform';
+      if(!partnerP.bkPerform) partnerP.bkPerform={};
+      partnerP.bkPerform[dateKey]=true; // 본인 인증과 별개로 보관
     }
   }
   // 제출 후 체크 상태 초기화
@@ -1610,8 +1610,17 @@ function processSheetData(table){
     }
 
     parseOk++;
-    if(!personMap[name])personMap[name]={name:name,byDate:{}};
+    if(!personMap[name])personMap[name]={name:name,byDate:{},bkPerform:{}};
     var p=personMap[name];
+    if(!p.bkPerform) p.bkPerform={};
+
+    // '흑기사 실시'는 짝꿍을 대신해준 기록 → 본인 인증 상태와 별도로 보관
+    // (같은 날 본인 운동도 인증하면 둘 다 표시되어야 하므로)
+    if(isBkPerform){
+      p.bkPerform[dateStr]=true;
+      return;
+    }
+
     // 같은 날 중복 제출 처리: 실시(false)가 우선
     if(!p.byDate.hasOwnProperty(dateStr)){p.byDate[dateStr]=dayVal;}
     else if(p.byDate[dateStr]!==false && dayVal===false){p.byDate[dateStr]=false;} // 실시로 덮어씀
@@ -1626,7 +1635,7 @@ function processSheetData(table){
     var workoutDates=dates.filter(function(d){return p.byDate[d]===false;});
     var restDates=dates.filter(function(d){return p.byDate[d]===true;});           // 순수 휴식권만
     var bkApplyDates=dates.filter(function(d){return p.byDate[d]==='bk-apply';});   // 흑기사 신청(본인이 받음)
-    var bkPerformDates=dates.filter(function(d){return p.byDate[d]==='bk-perform';}); // 흑기사 실시(짝꿍 대신 해줌)
+    var bkPerformDates=Object.keys(p.bkPerform||{});                                // 흑기사 실시(짝꿍 대신 해줌) - 별도 보관
     var wc=workoutDates.length;
     var rc=Math.min(restDates.length,1);                        // 휴식권 컬럼: 순수 휴식권만 (최대 1)
     var bkc=Math.min(bkApplyDates.length,1);                    // 흑기사: 신청자만 카운트 (실시는 제외)
@@ -1644,6 +1653,7 @@ function processSheetData(table){
     return{name:p.name,total:total,workout:wc,rest:rc,restUsed:restDates.length>0,restDate:restDate,
       blackKnightUsed:bkApplyDates.length>0,blackKnightDate:blackKnightDate,
       blackKnightApplyDates:bkApplyDates,blackKnightPerformDates:bkPerformDates,
+      bkPerform:p.bkPerform||{},
       missed:missed,pct:pct,lastDate:lastDate,todayDone:todayDone,byDate:p.byDate};
   });
 
@@ -1799,11 +1809,13 @@ async function searchPersonal(){
   var d=new Date(start);
   while(d<=today){
     var ds=d2s(d);
-    var isDone=p.byDate.hasOwnProperty(ds);
-    var isRest=isDone&&p.byDate[ds]===true;
-    var isBkApply=isDone&&p.byDate[ds]==='bk-apply';
-    var isBkPerform=isDone&&p.byDate[ds]==='bk-perform';
-    var isWorkout=isDone&&!isRest&&!isBkApply&&!isBkPerform;
+    var hasOwn=p.byDate.hasOwnProperty(ds);
+    var isRest=hasOwn&&p.byDate[ds]===true;
+    var isBkApply=hasOwn&&p.byDate[ds]==='bk-apply';
+    var isWorkout=hasOwn&&p.byDate[ds]===false;
+    // 흑기사 실시는 본인 인증과 별개로 공존 가능 (같은 날 둘 다 표시)
+    var isBkPerform=!!(p.bkPerform && p.bkPerform[ds]);
+    var isDone=hasOwn||isBkPerform;
     var isTday=ds===g_todayStr;
     rows.push({ds:ds,disp:formatDisp(ds),isDone:isDone,isRest:isRest,isBkApply:isBkApply,isBkPerform:isBkPerform,isWorkout:isWorkout,isToday:isTday});
     d.setDate(d.getDate()+1);
@@ -1821,10 +1833,11 @@ async function searchPersonal(){
     var rowClick = hasPhoto
       ? 'style="cursor:pointer" data-key="'+photoKey+'" onclick="onPhotoRowTap(event,this)"'
       : '';
-    var restCellHtml = r.isRest ? '<span class="rest-mark">🌴휴식권</span>'
-      : r.isBkApply ? '<span class="rest-mark" style="color:#b39cff">🥷흑기사 신청</span>'
-      : r.isBkPerform ? '<span class="rest-mark" style="color:#00b8ff">🥷흑기사 실시</span>'
-      : '';
+    var marks = [];
+    if(r.isRest)      marks.push('<span class="rest-mark">🌴휴식권</span>');
+    if(r.isBkApply)   marks.push('<span class="rest-mark" style="color:#b39cff">🥷흑기사 신청</span>');
+    if(r.isBkPerform) marks.push('<span class="rest-mark" style="color:#00b8ff">🥷흑기사 실시</span>');
+    var restCellHtml = marks.join('<br>');
     // 관리자는 날짜 셀을 눌러 인증 수정 가능 (미래 날짜 제외)
     var dParts = r.ds.split('/').map(Number);
     var tParts = g_todayStr.split('/').map(Number);
@@ -1862,8 +1875,9 @@ function openAdminCertEdit(name, ds){
   var curLabel = cur===false ? '✅ 실시'
     : cur===true ? '🌴 휴식권'
     : cur==='bk-apply' ? '🥷 흑기사 신청'
-    : cur==='bk-perform' ? '🥷 흑기사 실시'
     : '기록 없음';
+  // 흑기사 실시는 본인 인증과 별개로 공존 가능하므로 따로 덧붙임
+  if(p && p.bkPerform && p.bkPerform[ds]) curLabel += ' + 🥷흑기사 실시';
 
   var btn = function(mode, label, color){
     return '<button onclick="applyAdminCertEdit(\''+mode+'\')" style="width:100%;margin-bottom:8px;padding:13px;border-radius:12px;border:1px solid '+color+';background:rgba(0,0,0,.2);color:'+color+';font-family:\'Noto Sans KR\',sans-serif;font-size:14px;font-weight:700;cursor:pointer">'+label+'</button>';
@@ -1925,7 +1939,7 @@ async function applyAdminCertEdit(mode){
       var partner = mine ? (mine.partner||'') : '';
       if(partner){
         var pp = allParticipants.find(function(x){ return x.name===partner; });
-        if(pp){ if(!pp.byDate) pp.byDate={}; pp.byDate[ds]='bk-perform'; }
+        if(pp){ if(!pp.bkPerform) pp.bkPerform={}; pp.bkPerform[ds]=true; }
       }
     }
 
