@@ -1249,10 +1249,17 @@ function checkAlreadyCertified(){
   var parts=dv.split('-');
   var dateKey=parseInt(parts[0])+'/'+parseInt(parts[1])+'/'+parseInt(parts[2]);
   if(found.byDate && found.byDate.hasOwnProperty(dateKey)){
-    btn.disabled=true;
-    btn.innerHTML='<span>✅</span> 인증 완료';
-    btn.style.opacity='0.6'; btn.style.cursor='not-allowed';
-    return true;
+    var val = found.byDate[dateKey];
+    // 'bk-perform'(흑기사 실시)는 짝꿍을 대신해준 기록일 뿐,
+    // 본인의 당일 인증은 아직이므로 계속 인증 가능해야 함
+    if(val !== 'bk-perform'){
+      btn.disabled=true;
+      btn.innerHTML = val==='bk-apply' ? '<span>🥷</span> 흑기사 신청 완료'
+        : val===true ? '<span>🌴</span> 휴식권 사용'
+        : '<span>✅</span> 인증 완료';
+      btn.style.opacity='0.6'; btn.style.cursor='not-allowed';
+      return true;
+    }
   }
   btn.disabled=false; btn.innerHTML='<span>💪</span> 인증 제출하기';
   btn.style.opacity=''; btn.style.cursor='';
@@ -1324,13 +1331,16 @@ async function submitCert(){
         showCertStatus('err','⛔ 참여 인원이 아닙니다.');
         return;
       }
-    } else if(found.byDate && found.byDate.hasOwnProperty(dateKey)){
+    } else if(found.byDate && found.byDate.hasOwnProperty(dateKey)
+              && found.byDate[dateKey] !== 'bk-perform'){
+      // 'bk-perform'(흑기사 실시)는 짝꿍 대신해준 기록이라 본인 인증은 아직 가능
       flashCertBtnError('이미 인증했습니다');
       return;
     }
   } else if(trustedByMyName && allParticipants.length>0){
     var found2=allParticipants.find(function(p){return p.name===nv;});
-    if(found2 && found2.byDate && found2.byDate.hasOwnProperty(dateKey)){
+    if(found2 && found2.byDate && found2.byDate.hasOwnProperty(dateKey)
+       && found2.byDate[dateKey] !== 'bk-perform'){
       flashCertBtnError('이미 인증했습니다');
       return;
     }
