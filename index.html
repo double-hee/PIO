@@ -1618,8 +1618,9 @@ function processSheetData(table){
     var bkApplyDates=dates.filter(function(d){return p.byDate[d]==='bk-apply';});   // 흑기사 신청(본인이 받음)
     var bkPerformDates=dates.filter(function(d){return p.byDate[d]==='bk-perform';}); // 흑기사 실시(짝꿍 대신 해줌)
     var wc=workoutDates.length;
-    var rc=Math.min(restDates.length,1)+Math.min(bkApplyDates.length,1)+Math.min(bkPerformDates.length,1);
-    var total=wc+rc;                                            // 종합 = 실시 + 유효휴식/흑기사
+    var rc=Math.min(restDates.length,1);                        // 휴식권 컬럼: 순수 휴식권만 (최대 1)
+    var bkc=Math.min(bkApplyDates.length,1);                    // 흑기사: 신청자만 카운트 (실시는 제외)
+    var total=wc+rc+bkc;                                        // 종합 = 실시 + 유효휴식 + 흑기사신청
     var missed=Math.max(0,g_elapsed-wc);                        // 미실시 = elapsed - 실시
     var pct=g_elapsed>0?Math.round(wc/g_elapsed*100):0;         // % = 실시/elapsed (실시 기준)
     var sorted=dates.slice().sort(function(a,b){
@@ -1736,8 +1737,10 @@ function renderTable(){
     var rankDisp  = rank; // 항상 숫자
     var rankStyle = rank<=3 ? 'font-size:13px;font-weight:700' : 'color:var(--muted);font-size:12px';
     var nameMedal = isAllDone ? ' <span style="font-size:14px">🏅</span>' : '';
+    // 흑기사: 신청(본인 티켓 소모)만 집계 - 실시는 짝꿍을 대신해준 것이므로 카운트 제외
     var bkCls = p.blackKnightUsed ? 'rest-y' : '';
     var bkDisp = p.blackKnightUsed ? '1' : '0';
+    var bkTitle = p.blackKnightDate ? ['신청 '+p.blackKnightDate] : [];
     return '<tr class="'+rowCls+'">'
       +'<td style="text-align:center;'+rankStyle+'">'+rankDisp+'</td>'
       +'<td class="col-name">'+p.name+nameMedal+'</td>'
@@ -1746,7 +1749,7 @@ function renderTable(){
       +'<td>'+p.missed+'</td>'
       +'<td class="col-pct">'+pctDisp+'%</td>'
       +'<td class="'+restCls+'">'+p.rest+'</td>'
-      +'<td class="'+bkCls+'" title="'+(p.blackKnightDate||'')+'">'+bkDisp+'</td>'
+      +'<td class="'+bkCls+'" title="'+bkTitle.join(' / ')+'">'+bkDisp+'</td>'
       +'<td style="font-size:11px;white-space:nowrap">'+lastFmt+'</td>'
       +'<td class="'+todayCls+'">'+(p.todayDone?'1':'0')+'</td>'
       +'</tr>';
