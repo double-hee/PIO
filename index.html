@@ -1640,11 +1640,10 @@ function processSheetData(table){
     var bkPerformDates=Object.keys(p.bkPerform||{});                                // 흑기사 실시(짝꿍 대신 해줌) - 별도 보관
     var rc=Math.min(restDates.length,1);                        // 휴식권 컬럼: 순수 휴식권만 (최대 1)
     var bkc=Math.min(bkApplyDates.length,1);                    // 흑기사 컬럼: 신청자만 카운트 (실시는 제외)
-    // 휴식권/흑기사신청도 '실시'로 간주 (각각 최대 1회만 유효)
-    var wc=workoutDates.length + rc + bkc;
-    var total=wc;                                               // 종합 = 실시(휴식권·흑기사 포함)
-    var missed=Math.max(0,g_elapsed-wc);                        // 미실시 = elapsed - 실시
-    var pct=g_elapsed>0?Math.round(wc/g_elapsed*100):0;         // % = 실시/elapsed
+    var wc=workoutDates.length;                                 // 실시 = 순수 운동만 (개인조회 '체크'와 동일)
+    var total=wc+rc+bkc;                                        // 종합 = 실시 + 휴식권 + 흑기사신청
+    var missed=Math.max(0,g_elapsed-total);                     // 미실시 = elapsed - 종합
+    var pct=g_elapsed>0?Math.round(total/g_elapsed*100):0;      // % = 종합/elapsed
     var sorted=dates.slice().sort(function(a,b){
       var pa=a.split('/').map(Number),pb=b.split('/').map(Number);
       return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
@@ -1738,14 +1737,14 @@ function renderTable(){
   var todayOrder = {};
   g_todayEntries.forEach(function(e, i){ todayOrder[e.name] = i; });
 
-  // 1순위: 달성률(%) 내림차순 → 2순위: 휴식권 미사용 우선 → 3순위: 오늘 인증한 순서
+  // 1순위: 종합 내림차순 → 2순위: 실시 내림차순 → 3순위: 오늘 먼저 인증한 순
   var sorted = allParticipants.slice().sort(function(a,b){
-    if (b.total !== a.total) return b.total - a.total;          // % 높은 순
-    if (a.rest  !== b.rest)  return a.rest  - b.rest;           // 휴식권 안 쓴 사람 우선 (0 < 1)
+    if (b.total !== a.total) return b.total - a.total;            // 종합 높은 순
+    if (b.workout !== a.workout) return b.workout - a.workout;    // 실시 높은 순
     var ao = todayOrder.hasOwnProperty(a.name) ? todayOrder[a.name] : Infinity;
     var bo = todayOrder.hasOwnProperty(b.name) ? todayOrder[b.name] : Infinity;
-    if (ao !== bo) return ao - bo;                               // 오늘 먼저 인증한 순
-    return a.name.localeCompare(b.name, 'ko');                   // 둘 다 오늘 미인증 시 가나다순
+    if (ao !== bo) return ao - bo;                                // 오늘 먼저 인증한 순
+    return a.name.localeCompare(b.name, 'ko');                    // 모두 같으면 가나다순
   });
 
   var html=sorted.map(function(p, idx){
