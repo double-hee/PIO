@@ -846,7 +846,9 @@ function renderProgressRibbon(){
     if(i < elapsed){
       var d = new Date(start); d.setDate(d.getDate()+i);
       var ds = d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
-      var isDone = person && person.byDate && person.byDate[ds]===false;
+      // 실시(false) + 휴식권(true) + 흑기사신청('bk-apply') 모두 완료로 간주
+      var v = person && person.byDate ? person.byDate[ds] : undefined;
+      var isDone = (v===false || v===true || v==='bk-apply');
       if(isDone) doneCount++;
       color = isDone ? '#39ff14' : '#E24B4A';
     } else {
@@ -1636,12 +1638,13 @@ function processSheetData(table){
     var restDates=dates.filter(function(d){return p.byDate[d]===true;});           // 순수 휴식권만
     var bkApplyDates=dates.filter(function(d){return p.byDate[d]==='bk-apply';});   // 흑기사 신청(본인이 받음)
     var bkPerformDates=Object.keys(p.bkPerform||{});                                // 흑기사 실시(짝꿍 대신 해줌) - 별도 보관
-    var wc=workoutDates.length;
     var rc=Math.min(restDates.length,1);                        // 휴식권 컬럼: 순수 휴식권만 (최대 1)
-    var bkc=Math.min(bkApplyDates.length,1);                    // 흑기사: 신청자만 카운트 (실시는 제외)
-    var total=wc+rc+bkc;                                        // 종합 = 실시 + 유효휴식 + 흑기사신청
+    var bkc=Math.min(bkApplyDates.length,1);                    // 흑기사 컬럼: 신청자만 카운트 (실시는 제외)
+    // 휴식권/흑기사신청도 '실시'로 간주 (각각 최대 1회만 유효)
+    var wc=workoutDates.length + rc + bkc;
+    var total=wc;                                               // 종합 = 실시(휴식권·흑기사 포함)
     var missed=Math.max(0,g_elapsed-wc);                        // 미실시 = elapsed - 실시
-    var pct=g_elapsed>0?Math.round(wc/g_elapsed*100):0;         // % = 실시/elapsed (실시 기준)
+    var pct=g_elapsed>0?Math.round(wc/g_elapsed*100):0;         // % = 실시/elapsed
     var sorted=dates.slice().sort(function(a,b){
       var pa=a.split('/').map(Number),pb=b.split('/').map(Number);
       return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
