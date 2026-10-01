@@ -1299,9 +1299,8 @@ async function submitCert(){
 
   if(!g_dataReady){showCertStatus('err','⏳ 참여자 데이터 로딩 중입니다. 잠시 후 다시 시도해주세요.');return;}
   var trustedByMyName = false;
-  if(isAdmin()){
-    trustedByMyName = true; // 관리자는 전체 참여자 중 누구든 선택 가능
-  } else if(g_myName){
+  if(g_myName){
+    // 관리자 포함 모두 나/짝꿍만 인증 가능 (전체 인원 수정은 개인조회 ✏️ 기능으로)
     var allowed = [g_myName];
     if(g_partnerName) allowed.push(g_partnerName);
     if(allowed.indexOf(nv) === -1){
@@ -1813,8 +1812,15 @@ async function searchPersonal(){
       : r.isBkApply ? '<span class="rest-mark" style="color:#b39cff">🥷흑기사 신청</span>'
       : r.isBkPerform ? '<span class="rest-mark" style="color:#00b8ff">🥷흑기사 실시</span>'
       : '';
+    // 관리자는 날짜 셀을 눌러 인증 수정 가능 (미래 날짜 제외)
+    var dParts = r.ds.split('/').map(Number);
+    var tParts = g_todayStr.split('/').map(Number);
+    var isFuture = new Date(dParts[0],dParts[1]-1,dParts[2]) > new Date(tParts[0],tParts[1]-1,tParts[2]);
+    var dateCell = (isAdmin() && !isFuture)
+      ? '<td style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="openAdminCertEdit(\''+p.name.replace(/'/g,"\\'")+'\',\''+r.ds+'\')">'+r.disp+' ✏️</td>'
+      : '<td>'+r.disp+'</td>';
     return '<tr class="'+cls+'" '+rowClick+'>'
-      +'<td>'+r.disp+'</td>'
+      +dateCell
       +photoCell
       +'<td>'+(r.isWorkout?'<span class="done-mark">실시</span>':'')+'</td>'
       +'<td>'+restCellHtml+'</td>'
@@ -1829,6 +1835,102 @@ async function searchPersonal(){
     +'<div class="ptbl-scroll"><table class="ptbl">'
     +'<thead><tr><th>날짜</th><th style="text-align:center">사진</th><th>체크</th><th>🌴휴식권·🥷흑기사</th></tr></thead>'
     +'<tbody>'+rowsHtml+'</tbody></table></div>';
+}
+
+/* ── 관리자: 개인조회에서 특정 날짜 인증 수정 ── */
+var g_adminEdit = { name:'', ds:'' };
+
+function openAdminCertEdit(name, ds){
+  if(!isAdmin()) return;
+  g_adminEdit = { name:name, ds:ds };
+
+  var p = allParticipants.find(function(x){ return x.name===name; });
+  var cur = (p && p.byDate && p.byDate.hasOwnProperty(ds)) ? p.byDate[ds] : undefined;
+  var curLabel = cur===false ? '✅ 실시'
+    : cur===true ? '🌴 휴식권'
+    : cur==='bk-apply' ? '🥷 흑기사 신청'
+    : cur==='bk-perform' ? '🥷 흑기사 실시'
+    : '기록 없음';
+
+  var btn = function(mode, label, color){
+    return '<button onclick="applyAdminCertEdit(\''+mode+'\')" style="width:100%;margin-bottom:8px;padding:13px;border-radius:12px;border:1px solid '+color+';background:rgba(0,0,0,.2);color:'+color+';font-family:\'Noto Sans KR\',sans-serif;font-size:14px;font-weight:700;cursor:pointer">'+label+'</button>';
+  };
+
+  var html = ''
+    + '<div style="margin-bottom:14px;padding:10px 12px;background:var(--surface2);border-radius:10px;font-size:13px">'
+      + '<div style="color:var(--muted)">대상</div>'
+      + '<div style="font-weight:700;font-size:15px;margin-top:2px">'+name+' · '+formatDisp(ds)+'</div>'
+      + '<div style="color:var(--muted);margin-top:6px">현재 상태: <b style="color:var(--text)">'+curLabel+'</b></div>'
+    + '</div>'
+    + btn('workout','✅ 인증 (실시)','var(--accent)')
+    + btn('rest','🌴 휴식권 사용','#ff8fa3')
+    + btn('blackKnight','🥷 흑기사 사용 (짝꿍도 자동 기록)','#b39cff')
+    + btn('clear','🗑️ 인증 취소 (기록 삭제)','#8892a4');
+
+  openModal('✏️ 인증 수정 (관리자)', html);
+}
+
+async function applyAdminCertEdit(mode){
+  var name = g_adminEdit.name, ds = g_adminEdit.ds;
+  if(!name || !ds) return;
+
+  var labels = { workout:'인증(실시)', rest:'휴식권 사용', blackKnight:'흑기사 사용', clear:'인증 취소' };
+  if(!confirm(name+' · '+formatDisp(ds)+'\n\n"'+labels[mode]+'"(으)로 수정하시겠습니까?')) return;
+
+  var parts = ds.split('/').map(Number);
+  document.getElementById('modalBody').innerHTML =
+    '<div style="text-align:center;padding:32px"><div class="spinner"></div><div style="margin-top:12px;color:var(--muted)">수정 중...</div></div>';
+
+  try{
+    var res = await fetch(DRIVE_SCRIPT_URL, {
+      method:'POST',
+      body: JSON.stringify({
+        action:'adminSetCert', name:name,
+        year:parts[0], month:parts[1], day:parts[2], mode:mode
+      })
+    });
+    var text = await res.text();
+    var j;
+    try{ j = JSON.parse(text); }
+    catch(e){ throw new Error('서버 응답 형식 오류'); }
+
+    if(!j.success) throw new Error(j.error||'알 수 없는 오류');
+
+    // 로컬 데이터 즉시 반영
+    var p = allParticipants.find(function(x){ return x.name===name; });
+    if(p){
+      if(!p.byDate) p.byDate = {};
+      if(mode==='clear') delete p.byDate[ds];
+      else if(mode==='workout') p.byDate[ds] = false;
+      else if(mode==='rest') p.byDate[ds] = true;
+      else if(mode==='blackKnight') p.byDate[ds] = 'bk-apply';
+    }
+    // 흑기사면 짝꿍 기록도 로컬 반영
+    if(mode==='blackKnight'){
+      var pairs = await getNamePairs();
+      var mine = pairs.find(function(x){ return x.name===name; });
+      var partner = mine ? (mine.partner||'') : '';
+      if(partner){
+        var pp = allParticipants.find(function(x){ return x.name===partner; });
+        if(pp){ if(!pp.byDate) pp.byDate={}; pp.byDate[ds]='bk-perform'; }
+      }
+    }
+
+    clearCache();
+    closeModal();
+    showToast('✅ '+name+' · '+formatDisp(ds)+' 수정 완료');
+    dbg('관리자 인증 수정: '+name+' '+ds+' → '+mode+' (삭제'+j.removed+'/추가'+j.added+')','ok');
+
+    // 화면 갱신
+    searchPersonal();
+    try { renderTable(); renderChart(); } catch(e){}
+    renderProgressRibbon();
+    updatePartnerTodayStatus();
+    checkAlreadyCertified();
+  }catch(e){
+    alert('수정 실패: '+e.message);
+    openAdminCertEdit(name, ds); // 팝업 다시 표시
+  }
 }
 
 /* ── 사진/동영상 등록 ── */
@@ -2169,6 +2271,7 @@ async function shareMedia(targetFiles){
     return;
   }
   if(!navigator.share){
+    dbg('❌ navigator.share 미지원 → 다운로드 폴백','err');
     downloadMediaFiles(files);
     return;
   }
@@ -2179,14 +2282,24 @@ async function shareMedia(targetFiles){
       var ext = (f.type && f.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
       return new File([f], 'PIO_'+(i+1)+'.'+ext, {type: f.type || 'image/jpeg'});
     });
+    dbg('공유 시도: '+shareFiles.length+'개 ['+shareFiles.map(function(f){
+      return f.type+'/'+(f.size/1048576).toFixed(1)+'MB';
+    }).join(', ')+']','warn');
+
     var shareData = { files: shareFiles, title: 'PIO 4기 챌린지 운동 인증' };
-    if(navigator.canShare && navigator.canShare(shareData)){
+    var canShareFiles = navigator.canShare && navigator.canShare(shareData);
+    dbg('canShare(files) = '+canShareFiles,'warn');
+
+    if(canShareFiles){
       await navigator.share(shareData);
+      dbg('✅ 파일 공유 성공','ok');
     } else {
-      await navigator.share({ title:'PIO 4기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO3기챌린지' });
+      dbg('⚠️ 파일 공유 불가 → 텍스트만 공유로 대체','err');
+      await navigator.share({ title:'PIO 4기 챌린지 운동 인증', text:'오늘도 운동 완료! 💪 #PIO4기챌린지' });
     }
   } catch(e){
-    if(e.name === 'AbortError') return;
+    if(e.name === 'AbortError'){ dbg('사용자가 공유 취소','warn'); return; }
+    dbg('❌ 공유 오류: '+e.name+' - '+e.message+' → 다운로드 폴백','err');
     downloadMediaFiles(files);
   }
 }
@@ -2195,30 +2308,42 @@ async function downloadMediaFiles(targetFiles){
   var files = targetFiles || selectedFiles;
   if(!files.length){ alert('등록된 사진/동영상이 없습니다.'); return; }
 
+  function makeName(file, i){
+    var ext = (file.type && file.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
+    var hasExt = file.name && /\.[a-zA-Z0-9]{2,4}$/.test(file.name);
+    return hasExt ? file.name : ('PIO운동인증_'+(i+1)+'.'+ext);
+  }
+
+  // 게시된 아티팩트 환경이면 전용 API 사용
   var downloads = (window.claude && window.claude.use) ? await window.claude.use('downloads') : null;
-  if(!downloads){
-    alert('이 화면에서는 다운로드를 지원하지 않습니다.\n공유하기를 이용해 주세요.');
+  if(downloads){
+    var savedCount = 0;
+    for(var i=0; i<files.length; i++){
+      try{
+        await downloads.save({ filename: makeName(files[i], i), data: files[i] });
+        savedCount++;
+      }catch(e){
+        if(e && e.code === 'declined') break;
+      }
+    }
+    if(savedCount>0) alert('📥 파일이 다운로드됐습니다.\n갤러리 앱에서 열어 공유해 주세요!');
     return;
   }
 
-  var savedCount = 0;
-  for(var i=0; i<files.length; i++){
-    var file = files[i];
-    var ext = (file.type && file.type.indexOf('video')>=0) ? 'mp4' : 'jpg';
-    var hasExt = file.name && /\.[a-zA-Z0-9]{2,4}$/.test(file.name);
-    var filename = hasExt ? file.name : ('PIO운동인증_'+(i+1)+'.'+ext);
-    try{
-      await downloads.save({ filename: filename, data: file });
-      savedCount++;
-    }catch(e){
-      if(e && e.code === 'declined') break; // 사용자가 취소하면 중단
-      // 그 외 오류는 다음 파일 계속 시도
-    }
-  }
-
-  if(savedCount>0){
+  // 일반 브라우저(GitHub Pages 등): a[download] 방식
+  files.forEach(function(file, i){
+    var url = URL.createObjectURL(file);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = makeName(file, i);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  });
+  setTimeout(function(){
     alert('📥 파일이 다운로드됐습니다.\n갤러리 앱에서 열어 공유해 주세요!');
-  }
+  }, 500);
 }
 
 // IndexedDB 기반 사진 삭제 (X 버튼)
@@ -2880,14 +3005,9 @@ async function populateCertNameOptions(){
   if(!sel || !g_myName) return;
   var prevValue = sel.value;
 
-  var names;
-  if(isAdmin()){
-    var pairs = await getNamePairs();
-    names = pairs.map(function(p){ return p.name; });
-  } else {
-    names = [g_myName];
-    if(g_partnerName) names.push(g_partnerName);
-  }
+  // 관리자도 나/짝꿍만 선택 가능 (전체 인원 수정은 개인조회 ✏️ 기능으로)
+  var names = [g_myName];
+  if(g_partnerName) names.push(g_partnerName);
 
   sel.innerHTML = names.map(function(n){
     return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>';
