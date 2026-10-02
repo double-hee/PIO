@@ -825,6 +825,141 @@ function formatTodayDateStr(d){
 
 // 짝꿍의 오늘 인증 여부 표시 (시트 데이터 로딩 완료 후 호출)
 // 100일 진행률 띠 렌더링 (내 이름 기준, 오늘까지 초록/빨강 + 화살표 + (실시/진행))
+/* ── 개인별 맞춤 응원 메시지 ── */
+function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+// 날짜 문자열(Y/M/D)을 Date로
+function dsToDate(ds){ var p=ds.split('/').map(Number); return new Date(p[0],p[1]-1,p[2]); }
+function dateToDs(d){ return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }
+
+// 오늘 기준 연속 완료(실시/휴식권/흑기사신청) 일수 계산
+function calcStreak(person, includeToday){
+  if(!person || !person.byDate) return 0;
+  var start = new Date(CHALLENGE_START_STR+'T00:00:00'); start.setHours(0,0,0,0);
+  var d = new Date(); d.setHours(0,0,0,0);
+  if(!includeToday) d.setDate(d.getDate()-1);
+  var streak = 0;
+  while(d >= start){
+    var v = person.byDate[dateToDs(d)];
+    if(v===false || v===true || v==='bk-apply'){ streak++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return streak;
+}
+
+function buildCheerMessage(){
+  if(!g_myName || isBeforeChallengeStart()) return null;
+
+  var start = new Date(CHALLENGE_START_STR+'T00:00:00'); start.setHours(0,0,0,0);
+  var today = new Date(); today.setHours(0,0,0,0);
+  var dayNum = Math.floor((today-start)/86400000)+1;
+  var p = allParticipants.find(function(x){ return x.name===g_myName; });
+
+  if(dayNum < 1) return null;
+
+  // 챌린지 종료 후: 개인 성과에 맞춘 결산 메시지
+  if(dayNum > 100){
+    if(!p) return { icon:'🏁', title:'챌린지 종료', body:'PIO 4기 챌린지가 모두 끝났어요.<br>함께해 주셔서 감사합니다!' };
+    var tot = p.total||0, wk = p.workout||0;
+    var usedRest = !!p.restUsed, usedBK = !!p.blackKnightUsed;
+    var extras = [];
+    if(usedRest) extras.push('🌴휴식권 1회');
+    if(usedBK)   extras.push('🥷흑기사 1회');
+    var extraLine = extras.length ? '<br><span style="color:var(--muted);font-size:13px">('+extras.join(' · ')+' 사용)</span>' : '';
+    var statLine = '종합 <b>'+tot+'일</b> · 실시 <b>'+wk+'일</b>'+extraLine;
+
+    if(wk >= 100)  return { icon:'👑', title:'100일 전부 운동 실시!', body:'단 하루도 빠짐없이 직접 해내셨어요.<br>정말 경이롭습니다! 👑<br><br>'+statLine };
+    if(tot >= 100) return { icon:'🏆', title:'100일 모두 인증하셨어요!', body:'100일 완주, 정말 대단합니다! 🎉<br><br>'+statLine };
+    if(tot >= 90)  return { icon:'🥇', title:'거의 완벽한 100일!', body:''+tot+'일을 채우셨어요. 훌륭합니다 👏<br><br>'+statLine };
+    if(tot >= 70)  return { icon:'🥈', title:'끝까지 완주하셨어요!', body:''+tot+'일 달성, 충분히 자랑스러운 기록이에요 💪<br><br>'+statLine };
+    if(tot >= 50)  return { icon:'🥉', title:'절반 이상 해내셨어요!', body:''+tot+'일 달성. 다음 기수엔 더 높이 가봐요 🔥<br><br>'+statLine };
+    return { icon:'🏁', title:'100일 챌린지 종료', body:''+tot+'일 참여하셨어요.<br>시작한 것만으로도 의미 있습니다 😊<br><br>'+statLine };
+  }
+
+  var todayDone = !!(p && p.byDate && p.byDate.hasOwnProperty(g_todayStr));
+
+  // 어제 완료 여부
+  var yd = new Date(today); yd.setDate(yd.getDate()-1);
+  var ydStr = dateToDs(yd);
+  var hasYesterday = yd >= start;
+  var ydVal = p && p.byDate ? p.byDate[ydStr] : undefined;
+  var ydDone = (ydVal===false || ydVal===true || ydVal==='bk-apply');
+
+  var streak = calcStreak(p, todayDone);
+
+  // 1) 마지막 날 (성과 반영)
+  if(dayNum === 100){
+    var tot100 = p ? (p.total||0) : 0;
+    if(todayDone){
+      if(tot100 >= 100) return { icon:'👑', title:'100일 완주 달성!', body:'100일 전부 인증하셨어요.<br>정말 대단합니다! 🎉👑' };
+      return { icon:'🏆', title:'드디어 마지막 날!', body:'오늘 인증까지 완료하셨어요.<br>총 <b>'+tot100+'일</b> 달성, 수고하셨습니다! 🎉' };
+    }
+    var needPerfect = 100 - tot100; // 오늘 포함해서 몇 일 모자란지
+    if(needPerfect === 1) return { icon:'🔥', title:'오늘 하나면 100일 완주!', body:'딱 오늘만 인증하면 전일 달성이에요.<br>마지막까지 힘내세요! 💪' };
+    return { icon:'🔥', title:'드디어 마지막 날이에요!', body:'지금까지 <b>'+tot100+'일</b> 달성 중.<br>마지막 하루도 인증하고 마무리해요! 💪' };
+  }
+
+  // 2) 어제 미실시 (챌린지 2일차 이상이고 어제가 챌린지 기간 안일 때)
+  if(hasYesterday && !ydDone && !todayDone){
+    return { icon:'🤔', title:'어제 운동 안 하셨나요?',
+      body:'어제('+formatDisp(ydStr)+') 인증 기록이 없어요.<br>운동하셨다면 지금 인증해 주세요!' };
+  }
+  if(hasYesterday && !ydDone && todayDone){
+    return { icon:'📝', title:'어제 인증을 깜빡하셨어요',
+      body:'어제('+formatDisp(ydStr)+') 기록이 비어 있어요.<br>운동하셨다면 어제 날짜로 인증할 수 있어요!' };
+  }
+
+  // 3) 연속 기록 축하 (마일스톤)
+  if(todayDone && streak>0){
+    if(streak % 50 === 0) return { icon:'👑', title:streak+'일 연속 달성!', body:'이 정도면 생활이네요.<br>정말 대단합니다! 👑' };
+    if(streak % 30 === 0) return { icon:'🏅', title:streak+'일 연속 달성!', body:'한 달을 꽉 채웠어요.<br>자신에게 박수를! 👏' };
+    if(streak % 10 === 0) return { icon:'🔥', title:streak+'일 연속 실시입니다!', body:'대단해요! 이 흐름 그대로 가요 💪' };
+    if(streak === 7)      return { icon:'✨', title:'일주일 연속 달성!', body:'첫 일주일이 가장 어려운데 해내셨어요 👍' };
+    if(streak === 3)      return { icon:'🌱', title:'3일 연속!', body:'작심삼일을 넘겼어요.<br>이제 습관이 되어갑니다 😊' };
+  }
+
+  // 4) 오늘 이미 완료
+  if(todayDone){
+    return { icon:'✅', title:pickRandom(['오늘도 완료!','고생하셨어요!','멋집니다!']),
+      body: (streak>1 ? streak+'일 연속 기록 중이에요.<br>' : '')+'오늘 인증까지 끝! 내일도 함께해요 💪' };
+  }
+
+  // 5) 오늘 아직 안 함
+  var remain = 100 - dayNum + 1;
+  var tails = [
+    '오늘 운동 완료하면 인증 잊지 마세요!',
+    '10분이면 충분해요. 가볍게 시작해볼까요?',
+    '오늘도 짝꿍이 기다리고 있어요 🤝'
+  ];
+  if(streak > 0){
+    return { icon:'🔥', title:streak+'일 연속 기록 중!',
+      body:'오늘 인증하면 '+(streak+1)+'일 연속이에요.<br>'+pickRandom(tails) };
+  }
+  return { icon:'💪', title:dayNum+'일차 시작!',
+    body:'완주까지 '+remain+'일 남았어요.<br>'+pickRandom(tails) };
+}
+
+function showCheerPopup(){
+  // 하루 1회만 표시
+  var todayKey = 'pio_cheer_shown_'+(g_myName||'')+'_'+g_todayStr;
+  if(localStorage.getItem(todayKey)==='1') return;
+
+  var msg = buildCheerMessage();
+  if(!msg) return;
+
+  localStorage.setItem(todayKey,'1');
+
+  var html = ''
+    + '<div style="text-align:center;padding:10px 4px 4px">'
+      + '<div style="font-size:44px;line-height:1;margin-bottom:12px">'+msg.icon+'</div>'
+      + '<div style="font-size:18px;font-weight:800;color:var(--accent);margin-bottom:10px">'+msg.title+'</div>'
+      + '<div style="font-size:14px;color:var(--text);line-height:1.7">'+msg.body+'</div>'
+      + '<button onclick="closeModal()" style="width:100%;margin-top:20px;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),#00b8ff);color:#091510;font-family:\'Noto Sans KR\',sans-serif;font-size:15px;font-weight:700;cursor:pointer">확인</button>'
+    + '</div>';
+
+  openModal('👋 '+g_myName+'님, 안녕하세요!', html);
+}
+
 function renderProgressRibbon(){
   var wrap = document.getElementById('progressRibbonWrap');
   if(!wrap) return;
@@ -1016,6 +1151,8 @@ function loadStatusAsync(){
     stepsPromise.then(function(){
       dbg(result==='timeout' ? '백그라운드 단계 전체 완료 - 화면 갱신' : '단계 완료 확인됨','ok');
       checkAlreadyCertified();
+      // 데이터가 모두 준비된 뒤 개인별 맞춤 응원 메시지 (하루 1회)
+      setTimeout(function(){ try{ showCheerPopup(); }catch(e){ dbg('응원메시지 오류: '+e.message,'err'); } }, 600);
       restoreFromDriveIfNeeded(); // 오늘/짝꿍 인증여부 데이터 로딩이 끝난 뒤에 시작
     });
 
