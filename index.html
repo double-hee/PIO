@@ -1768,32 +1768,9 @@ function processSheetData(table){
   } catch(e){ dbg('❌ 행 파싱 오류: '+e.message+' (stack: '+e.stack.split('\n')[0]+')','err'); }
   dbg('행 파싱 완료 - 유효:'+parseOk+' 오류:'+parseErr+' 사람:'+Object.keys(personMap).length+'명','ok');
 
-  // 참가자별 통계 계산
+  // 참가자별 통계 계산 (recalcPersonStats 공용 함수 사용 → 관리자 수정 시와 동일 로직)
   allParticipants=Object.values(personMap).map(function(p){
-    var dates=Object.keys(p.byDate);
-    var workoutDates=dates.filter(function(d){return p.byDate[d]===false;});
-    var restDates=dates.filter(function(d){return p.byDate[d]===true;});           // 순수 휴식권만
-    var bkApplyDates=dates.filter(function(d){return p.byDate[d]==='bk-apply';});   // 흑기사 신청(본인이 받음)
-    var bkPerformDates=Object.keys(p.bkPerform||{});                                // 흑기사 실시(짝꿍 대신 해줌) - 별도 보관
-    var rc=Math.min(restDates.length,1);                        // 휴식권 컬럼: 순수 휴식권만 (최대 1)
-    var bkc=Math.min(bkApplyDates.length,1);                    // 흑기사 컬럼: 신청자만 카운트 (실시는 제외)
-    var wc=workoutDates.length;                                 // 실시 = 순수 운동만 (개인조회 '체크'와 동일)
-    var total=wc+rc+bkc;                                        // 종합 = 실시 + 휴식권 + 흑기사신청
-    var missed=Math.max(0,g_elapsed-total);                     // 미실시 = elapsed - 종합
-    var pct=g_elapsed>0?Math.round(total/g_elapsed*100):0;      // % = 종합/elapsed
-    var sorted=dates.slice().sort(function(a,b){
-      var pa=a.split('/').map(Number),pb=b.split('/').map(Number);
-      return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
-    });
-    var lastDate=sorted.length?formatDisp(sorted[sorted.length-1]):'-';
-    var todayDone=p.byDate.hasOwnProperty(g_todayStr);
-    var restDate = restDates.length > 0 ? formatDisp(restDates.sort(function(a,b){var pa=a.split('/').map(Number),pb=b.split('/').map(Number);return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);})[0]) : null;
-    var blackKnightDate = bkApplyDates.length > 0 ? formatDisp(bkApplyDates.sort(function(a,b){var pa=a.split('/').map(Number),pb=b.split('/').map(Number);return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);})[0]) : null;
-    return{name:p.name,total:total,workout:wc,rest:rc,restUsed:restDates.length>0,restDate:restDate,
-      blackKnightUsed:bkApplyDates.length>0,blackKnightDate:blackKnightDate,
-      blackKnightApplyDates:bkApplyDates,blackKnightPerformDates:bkPerformDates,
-      bkPerform:p.bkPerform||{},
-      missed:missed,pct:pct,lastDate:lastDate,todayDone:todayDone,byDate:p.byDate};
+    return recalcPersonStats({name:p.name,byDate:p.byDate,bkPerform:p.bkPerform||{}});
   });
 
   dbg('참가자 통계 계산 완료: '+allParticipants.length+'명','ok');
@@ -1866,6 +1843,75 @@ function renderChart(){
   }).join('');
 
   document.getElementById('sub-chart').innerHTML='<div class="chart-wrap">'+axisHtml+barsHtml+'</div>';
+}
+
+/* ══ 통계 재계산 (byDate/bkPerform 변경 후 호출) ══ */
+function sortDsAsc(arr){
+  return arr.slice().sort(function(a,b){
+    var pa=a.split('/').map(Number),pb=b.split('/').map(Number);
+    return(pa[0]-pb[0])||(pa[1]-pb[1])||(pa[2]-pb[2]);
+  });
+}
+function recalcPersonStats(p){
+  if(!p) return p;
+  if(!p.byDate) p.byDate={};
+  if(!p.bkPerform) p.bkPerform={};
+  var dates=Object.keys(p.byDate);
+  var workoutDates=dates.filter(function(d){return p.byDate[d]===false;});
+  var restDates=dates.filter(function(d){return p.byDate[d]===true;});
+  var bkApplyDates=dates.filter(function(d){return p.byDate[d]==='bk-apply';});
+  var bkPerformDates=Object.keys(p.bkPerform);
+  var rc=Math.min(restDates.length,1);
+  var bkc=Math.min(bkApplyDates.length,1);
+  var wc=workoutDates.length;
+  p.workout=wc;
+  p.rest=rc;
+  p.total=wc+rc+bkc;
+  p.missed=Math.max(0,g_elapsed-p.total);
+  p.pct=g_elapsed>0?Math.round(p.total/g_elapsed*100):0;
+  p.restUsed=restDates.length>0;
+  p.restDate=restDates.length>0?formatDisp(sortDsAsc(restDates)[0]):null;
+  p.blackKnightUsed=bkApplyDates.length>0;
+  p.blackKnightDate=bkApplyDates.length>0?formatDisp(sortDsAsc(bkApplyDates)[0]):null;
+  p.blackKnightApplyDates=bkApplyDates;
+  p.blackKnightPerformDates=bkPerformDates;
+  var s=sortDsAsc(dates);
+  p.lastDate=s.length?formatDisp(s[s.length-1]):'-';
+  p.todayDone=p.byDate.hasOwnProperty(g_todayStr);
+  return p;
+}
+// 이름으로 참가자 객체 가져오기 (없으면 생성해서 allParticipants에 추가)
+function getOrCreateParticipant(name){
+  var p=allParticipants.find(function(x){ return x.name===name; });
+  if(!p){
+    p={name:name,byDate:{},bkPerform:{},total:0,workout:0,rest:0,restUsed:false,restDate:null,
+       blackKnightUsed:false,blackKnightDate:null,blackKnightApplyDates:[],blackKnightPerformDates:[],
+       missed:g_elapsed,pct:0,lastDate:'-',todayDone:false};
+    allParticipants.push(p);
+    try { allParticipants.sort(function(a,b){return a.name.localeCompare(b.name,'ko');}); } catch(e){}
+  }
+  return p;
+}
+// 오늘 인증 목록(g_todayEntries) + 상단 '오늘 인증' 카운트 재계산
+function recalcTodayEntries(){
+  var entries=[];
+  allParticipants.forEach(function(p){
+    if(!p.byDate) return;
+    var hasBk = !!(p.bkPerform && p.bkPerform[g_todayStr]);
+    if(!p.byDate.hasOwnProperty(g_todayStr) && !hasBk) return;
+    var prev=g_todayEntries.find(function(e){ return e.name===p.name; });
+    var v=p.byDate[g_todayStr];
+    entries.push({
+      name:p.name,
+      timeStr:prev?prev.timeStr:'-',
+      tsMs:prev?prev.tsMs:Number.MAX_SAFE_INTEGER,
+      isRest:v!==false && (v===true || v==='bk-apply' || hasBk)
+    });
+  });
+  entries.sort(function(a,b){ return (a.tsMs-b.tsMs)||a.name.localeCompare(b.name,'ko'); });
+  g_todayEntries=entries;
+  var el=document.getElementById('statToday');
+  if(el) el.textContent=g_todayEntries.length;
 }
 
 /* ══ 현황표 렌더링 ══ */
@@ -2062,37 +2108,41 @@ async function applyAdminCertEdit(mode){
 
     if(!j.success) throw new Error(j.error||'알 수 없는 오류');
 
-    // 로컬 데이터 즉시 반영
-    var p = allParticipants.find(function(x){ return x.name===name; });
-    if(p){
-      if(!p.byDate) p.byDate = {};
-      if(mode==='clear') delete p.byDate[ds];
-      else if(mode==='workout') p.byDate[ds] = false;
-      else if(mode==='rest') p.byDate[ds] = true;
-      else if(mode==='blackKnight') p.byDate[ds] = 'bk-apply';
-    }
-    // 흑기사면 짝꿍 기록도 로컬 반영
-    if(mode==='blackKnight'){
+    // 로컬 데이터 즉시 반영 (없는 참가자면 새로 생성)
+    var p = getOrCreateParticipant(name);
+    if(mode==='clear') delete p.byDate[ds];
+    else if(mode==='workout') p.byDate[ds] = false;
+    else if(mode==='rest') p.byDate[ds] = true;
+    else if(mode==='blackKnight') p.byDate[ds] = 'bk-apply';
+    recalcPersonStats(p);
+
+    // 흑기사 관련: 짝꿍의 '흑기사실시' 기록도 로컬 반영
+    if(mode==='blackKnight' || mode==='clear'){
       var pairs = await getNamePairs();
       var mine = pairs.find(function(x){ return x.name===name; });
       var partner = mine ? (mine.partner||'') : '';
       if(partner){
-        var pp = allParticipants.find(function(x){ return x.name===partner; });
-        if(pp){ if(!pp.bkPerform) pp.bkPerform={}; pp.bkPerform[ds]=true; }
+        var pp = getOrCreateParticipant(partner);
+        if(mode==='blackKnight') pp.bkPerform[ds]=true;
+        else delete pp.bkPerform[ds];   // 인증 취소 시 짝꿍 실시 기록도 제거
+        recalcPersonStats(pp);
       }
     }
+    recalcTodayEntries();
 
     clearCache();
     closeModal();
     showToast('✅ '+name+' · '+formatDisp(ds)+' 수정 완료');
-    dbg('관리자 인증 수정: '+name+' '+ds+' → '+mode+' (삭제'+j.removed+'/추가'+j.added+')','ok');
+    dbg('관리자 인증 수정: '+name+' '+ds+' → '+mode+' (삭제'+j.removed+'/추가'+j.added+') → 통계 재계산 total='+p.total+' 실시='+p.workout,'ok');
 
     // 화면 갱신
     searchPersonal();
-    try { renderTable(); renderChart(); } catch(e){}
+    try { renderTable(); } catch(e){ dbg('renderTable 오류: '+e.message,'err'); }
+    try { renderChart(); } catch(e){ dbg('renderChart 오류: '+e.message,'err'); }
     renderProgressRibbon();
     updatePartnerTodayStatus();
     checkAlreadyCertified();
+    try { updateCertRestStatus(); updateCertBlackKnightStatus(); } catch(e){}
   }catch(e){
     alert('수정 실패: '+e.message);
     openAdminCertEdit(name, ds); // 팝업 다시 표시
