@@ -1106,7 +1106,7 @@ function renderProgressRibbon(){
   if(elapsed >= L30_START_DAY - 7){   // 임박했을 때부터 표시
     var gx = x0 + (L30_START_DAY-1)*segW;
     marker = '<rect x="'+(gx-0.5).toFixed(2)+'" y="'+(barY-3)+'" width="1" height="'+(barH+6)+'" fill="#ffd700" opacity=".85"/>'
-      + '<text x="'+gx.toFixed(2)+'" y="'+(barY-5)+'" text-anchor="middle" style="font-size:6.5px;font-weight:800;fill:#ffd700;letter-spacing:.06em">LAST 30</text>';
+      + '<text x="'+gx.toFixed(2)+'" y="'+(barY-4)+'" text-anchor="middle" style="font-size:10px;font-weight:800;fill:#ffd700;letter-spacing:.05em">LAST 30</text>';
   }
 
   // 우측 LAST 30 상태 문구
