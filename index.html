@@ -919,9 +919,13 @@ function buildLast30Line(person, dayNum){
   if(l.phase === 'done')
     return { tone:'gold', text:'👍 LAST 30 완주! 30일 연속',
       sub:'30일을 하루도 빠짐없이 직접 해내셨어요. 정말 대단합니다!' };
-  if(l.phase === 'running')
+  if(l.phase === 'running'){
+    if(l.streak === 0)   // 71일차, 아직 인증 전
+      return { tone:'gold', text:'🏅 오늘부터 LAST 30 시작!',
+        sub:'오늘 인증하면 1일 연속이에요. 100일차까지 30일 연속에 도전해요!' };
     return { tone:'gold', text:'👍 LAST 30 — '+l.streak+'일 연속 진행 중',
       sub:'앞으로 '+(L30_DAYS-l.streak)+'일만 더 이어가면 완주예요' };
+  }
   if(l.phase === 'pending')
     return { tone:'warn', text:'⚠️ LAST 30 연속이 끊길 위기예요',
       sub:'어제('+l30FmtDay(l.gapDay)+') 기록이 비어 있어요. <b>오늘 안에</b> 어제 날짜로 인증하면 '
@@ -1113,7 +1117,8 @@ function renderProgressRibbon(){
   var l30Txt = '';
   if(l30.phase !== 'before'){
     var col, label;
-    if(goldOn){ col='#ffd700'; label='LAST 30 '+l30.streak+'일 연속'+(l30.phase==='done'?' 👍':''); }
+    if(goldOn && l30.streak>0){ col='#ffd700'; label='LAST 30 '+l30.streak+'일 연속'+(l30.phase==='done'?' 👍':''); }
+    else if(goldOn){ col='#8a93a6'; label='LAST 30 시작! 인증하면 1일 연속'; }   // 71일차 인증 전
     else if(l30.phase==='pending'){ col='#ffa726'; label='LAST 30 위기 — 어제 인증하면 복구'; }
     else { col='#8a93a6'; label='LAST 30 중단 ('+l30.gapDay+'일차)'; }
     l30Txt = '<text x="'+(x0+100*segW).toFixed(2)+'" y="'+(barY+barH+15)+'" text-anchor="end" '
@@ -2127,7 +2132,8 @@ function renderTable(){
     var nameMedal = isAllDone ? ' <span style="font-size:14px">🏅</span>' : '';
     // LAST 30 진행 중 / 완주 → 엄지척 (연속이 끊기면 사라짐)
     var l30p = calcLast30(p, l30Day);
-    var l30Thumb = l30IsGold(l30p)
+    // 연속 1일차부터 표시 — 71일차에도 인증하는 순간 바로 붙는다
+    var l30Thumb = (l30IsGold(l30p) && l30p.streak > 0)
       ? ' <span style="font-size:13px" title="LAST 30 '+l30p.streak+'일 연속">👍</span>' : '';
     // 흑기사: 신청(본인 티켓 소모)만 집계 - 실시는 짝꿍을 대신해준 것이므로 카운트 제외
     var bkCls = p.blackKnightUsed ? 'rest-y' : '';

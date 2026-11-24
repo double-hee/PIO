@@ -1,4 +1,4 @@
-const CACHE = 'pio-v10'; // 버전 올려서 구버전 캐시 강제 삭제
+const CACHE = 'pio-v11'; // 버전 올려서 구버전 캐시 강제 삭제
 const ASSETS = ['./'];
 
 self.addEventListener('install', e => {
