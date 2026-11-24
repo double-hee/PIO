@@ -178,6 +178,9 @@
     .chart-track{flex:1;height:22px;background:var(--surface2);border-radius:6px;position:relative;overflow:hidden;}
     .chart-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:6px;transition:width .6s ease;}
     .chart-val-out{width:26px;font-size:11px;color:var(--muted);flex-shrink:0;text-align:left;}
+.chart-gold{position:absolute;top:0;height:100%;background:linear-gradient(90deg,#d4a017,#ffd700);border-radius:0 6px 6px 0;box-shadow:inset 0 0 8px rgba(255,255,255,.3);transition:all .5s ease;}
+.l30-chip{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:800;color:#ffd700;background:rgba(10,14,26,.82);border:1px solid rgba(255,215,0,.55);border-radius:999px;padding:1px 8px;line-height:1.5;z-index:2;font-variant-numeric:tabular-nums;}
+.l30-chip.crown{color:#0a0e1a;background:linear-gradient(90deg,#d4a017,#ffd700);border-color:#ffd700;}
 
     /* TABLE */
     .table-scroll{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
@@ -851,6 +854,86 @@ function calcStreak(person, includeToday){
   return streak;
 }
 
+/* ══════════ LAST 30 (71~100일차 연속 달성 이벤트) ══════════ */
+var L30_START_DAY = 71;   // 시작 일차
+var L30_DAYS      = 30;   // 연속 목표
+
+function dayNumToDate(n){
+  var d = new Date(CHALLENGE_START_STR+'T00:00:00'); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + (n-1)); return d;
+}
+function dayNumToDs(n){ return dateToDs(dayNumToDate(n)); }
+function l30FmtDay(n){ var d=dayNumToDate(n); return (d.getMonth()+1)+'/'+d.getDate(); }
+// 종합 인정(실시/휴식권/흑기사신청)
+function isDoneVal(v){ return (v===false || v===true || v==='bk-apply'); }
+// LAST 30은 '직접 운동 실시'만 인정 — 휴식권·흑기사신청 제외
+function isL30Done(v){ return v===false; }
+
+// 오늘이 몇 일차인지
+function currentDayNum(){
+  var start = new Date(CHALLENGE_START_STR+'T00:00:00'); start.setHours(0,0,0,0);
+  var today = new Date(); today.setHours(0,0,0,0);
+  return Math.floor((today-start)/86400000)+1;
+}
+
+/**
+ * LAST 30 현황
+ *   before  : 71일차 전
+ *   running : 연속 유지 중 (골드 ON)
+ *   done    : 30일 연속 완주 (골드 ON, 영구 유지)
+ *   pending : 어제가 비어 끊길 위기 — 오늘 어제 날짜로 인증하면 복구 (골드 OFF)
+ *   broken  : 복구 불가, 탈락 확정 (골드 OFF)
+ * 인증은 오늘·어제만 가능하므로 빠뜨린 날 N은 N+1일차까지 복구 가능,
+ * N+2일차에 확정. 단 휴식권·흑기사를 쓴 날은 이미 인증된 날이라 즉시 확정.
+ */
+function calcLast30(person, dayNum){
+  if(dayNum == null) dayNum = currentDayNum();
+  if(dayNum < L30_START_DAY) return { phase:'before', streak:0, gapDay:0, gapRest:false };
+  var lastDay = Math.min(dayNum, L30_START_DAY + L30_DAYS - 1);   // 최대 100일차
+  var streak = 0, gapDay = 0, gapRest = false;
+  for(var n = L30_START_DAY; n <= lastDay; n++){
+    var v = (person && person.byDate) ? person.byDate[dayNumToDs(n)] : undefined;
+    if(isL30Done(v)){ streak++; continue; }
+    if(isDoneVal(v)){ gapDay = n; gapRest = true; }   // 휴식권·흑기사 → 즉시 확정
+    else if(n < dayNum) gapDay = n;                   // 비어 있음 (오늘은 제외)
+    break;
+  }
+  if(gapDay){
+    if(gapRest) return { phase:'broken', streak:streak, gapDay:gapDay, gapRest:true };
+    if(gapDay === dayNum - 1) return { phase:'pending', streak:streak, gapDay:gapDay, gapRest:false };
+    return { phase:'broken', streak:streak, gapDay:gapDay, gapRest:false };
+  }
+  if(streak >= L30_DAYS) return { phase:'done', streak:L30_DAYS, gapDay:0, gapRest:false };
+  return { phase:'running', streak:streak, gapDay:0, gapRest:false };
+}
+function l30IsGold(l){ return l.phase==='running' || l.phase==='done'; }
+
+// 응원 팝업에 붙일 LAST 30 안내
+function buildLast30Line(person, dayNum){
+  if(dayNum === L30_START_DAY - 1){
+    return { tone:'gold', text:'🏅 내일부터 LAST 30 시작!',
+      sub:'71일차('+l30FmtDay(71)+')부터 100일차('+l30FmtDay(100)+')까지 30일 연속에 도전해요' };
+  }
+  var l = calcLast30(person, dayNum);
+  if(l.phase === 'before') return null;
+  if(l.phase === 'done')
+    return { tone:'gold', text:'👍 LAST 30 완주! 30일 연속',
+      sub:'30일을 하루도 빠짐없이 직접 해내셨어요. 정말 대단합니다!' };
+  if(l.phase === 'running')
+    return { tone:'gold', text:'👍 LAST 30 — '+l.streak+'일 연속 진행 중',
+      sub:'앞으로 '+(L30_DAYS-l.streak)+'일만 더 이어가면 완주예요' };
+  if(l.phase === 'pending')
+    return { tone:'warn', text:'⚠️ LAST 30 연속이 끊길 위기예요',
+      sub:'어제('+l30FmtDay(l.gapDay)+') 기록이 비어 있어요. <b>오늘 안에</b> 어제 날짜로 인증하면 '
+          +(l.streak+1)+'일 연속으로 되살아나요!' };
+  var remain = Math.max(0, 100 - dayNum + 1);
+  return { tone:'off',
+    text: l.gapRest ? (l.gapDay+'일차는 직접 운동한 날이 아니라 연속이 끊겼어요')
+                    : ('LAST 30은 '+l.gapDay+'일차에서 아쉽게 끊겼어요'),
+    sub: remain>0 ? '연속은 아쉽지만 종합 기록은 계속 쌓여요.<br>남은 '+remain+'일, 끝까지 같이 달려요 💪'
+                  : '끝까지 함께해 주셔서 고맙습니다 💪' };
+}
+
 function buildCheerMessage(){
   if(!g_myName || isBeforeChallengeStart()) return null;
 
@@ -953,11 +1036,26 @@ function showCheerPopup(){
 
   localStorage.setItem(todayKey,'1');
 
+  // LAST 30 현황 한 줄 덧붙이기
+  var l30Html = '';
+  try {
+    var meP = allParticipants.find(function(x){ return x.name===g_myName; });
+    var ln = buildLast30Line(meP, currentDayNum());
+    if(ln){
+      var col = ln.tone==='gold' ? '#ffd700' : (ln.tone==='warn' ? '#ffa726' : 'var(--muted)');
+      l30Html = '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);'
+        + 'font-size:14px;font-weight:'+(ln.tone==='off'?'500':'700')+';color:'+col+'">'+ln.text
+        + '<span style="display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:5px;line-height:1.6">'
+        + ln.sub+'</span></div>';
+    }
+  } catch(e){}
+
   var html = ''
     + '<div style="text-align:center;padding:10px 4px 4px">'
       + '<div style="font-size:44px;line-height:1;margin-bottom:12px">'+msg.icon+'</div>'
       + '<div style="font-size:18px;font-weight:800;color:var(--accent);margin-bottom:10px">'+msg.title+'</div>'
       + '<div style="font-size:14px;color:var(--text);line-height:1.7">'+msg.body+'</div>'
+      + l30Html
       + '<button onclick="closeModal()" style="width:100%;margin-top:20px;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),#00b8ff);color:#091510;font-family:\'Noto Sans KR\',sans-serif;font-size:15px;font-weight:700;cursor:pointer">확인</button>'
     + '</div>';
 
@@ -976,6 +1074,10 @@ function renderProgressRibbon(){
 
   var person = allParticipants.find(function(p){ return p.name===g_myName; });
 
+  // LAST 30 현황
+  var l30 = calcLast30(person, dayNum);
+  var goldOn = l30IsGold(l30);
+
   var segW = 3.4, x0 = 20, barY = 12, barH = 8;
   var rects = '';
   var doneCount = 0;
@@ -989,20 +1091,41 @@ function renderProgressRibbon(){
       var v = person && person.byDate ? person.byDate[ds] : undefined;
       var isDone = (v===false || v===true || v==='bk-apply');
       if(isDone) doneCount++;
-      color = isDone ? '#39ff14' : '#E24B4A';
+      // LAST 30 연속 구간은 골드
+      var dayNo = i+1;
+      var inGold = goldOn && dayNo>=L30_START_DAY && dayNo < L30_START_DAY + l30.streak;
+      color = inGold ? '#ffd700' : (isDone ? '#39ff14' : '#E24B4A');
     } else {
       color = '#D3D1C7';
     }
     rects += '<rect x="'+x.toFixed(2)+'" y="'+barY+'" width="'+segW+'" height="'+barH+'" fill="'+color+'"/>';
   }
 
-  var arrowX = x0 + elapsed*segW;
+  // 71일차 경계선 + LAST 30 라벨
+  var marker = '';
+  if(elapsed >= L30_START_DAY - 7){   // 임박했을 때부터 표시
+    var gx = x0 + (L30_START_DAY-1)*segW;
+    marker = '<rect x="'+(gx-0.5).toFixed(2)+'" y="'+(barY-3)+'" width="1" height="'+(barH+6)+'" fill="#ffd700" opacity=".85"/>'
+      + '<text x="'+gx.toFixed(2)+'" y="'+(barY-5)+'" text-anchor="middle" style="font-size:6.5px;font-weight:800;fill:#ffd700;letter-spacing:.06em">LAST 30</text>';
+  }
+
+  // 우측 LAST 30 상태 문구
+  var l30Txt = '';
+  if(l30.phase !== 'before'){
+    var col, label;
+    if(goldOn){ col='#ffd700'; label='LAST 30 '+l30.streak+'일 연속'+(l30.phase==='done'?' 👍':''); }
+    else if(l30.phase==='pending'){ col='#ffa726'; label='LAST 30 위기 — 어제 인증하면 복구'; }
+    else { col='#8a93a6'; label='LAST 30 중단 ('+l30.gapDay+'일차)'; }
+    l30Txt = '<text x="'+(x0+100*segW).toFixed(2)+'" y="'+(barY+barH+16)+'" text-anchor="end" '
+      + 'style="font-size:10.5px;font-weight:800;fill:'+col+'">'+label+'</text>';
+  }
 
   var svg = ''
-    +'<svg width="100%" viewBox="0 0 380 40" role="img">'
+    +'<svg width="100%" viewBox="0 0 380 42" role="img">'
     +'<title>100일 진행률</title><desc>'+elapsed+'일 중 '+doneCount+'일 실시</desc>'
-    +rects
-    +'<text x="'+arrowX.toFixed(2)+'" y="'+(barY+barH+18).toFixed(2)+'" text-anchor="middle" style="font-size:14px;font-weight:800;fill:#39ff14">'+doneCount+'/'+elapsed+'</text>'
+    +rects + marker
+    +'<text x="'+x0+'" y="'+(barY+barH+16)+'" style="font-size:13px;font-weight:800;fill:#39ff14">'+doneCount+'/'+elapsed+'</text>'
+    +l30Txt
     +'</svg>';
 
   wrap.innerHTML = svg;
@@ -1882,11 +2005,21 @@ function renderChart(){
   ticks.forEach(function(t){axisHtml+='<div class="chart-tick">'+t+'</div>';});
   axisHtml+='</div>';
 
+  var l30Day = currentDayNum();
   var barsHtml=allParticipants.map(function(p){
     var pct=scaleMax>0?(p.total/scaleMax*100):0;
+    // LAST 30: 연속 구간을 막대 끝에 골드로 덧칠 + 연속일수 칩
+    var l=calcLast30(p, l30Day);
+    var gold = l30IsGold(l) ? Math.min(l.streak, p.total) : 0;
+    var goldPct = scaleMax>0 ? (gold/scaleMax*100) : 0;
+    var goldLeft = Math.max(0, pct-goldPct);
+    var goldBar = gold>0
+      ? '<div class="chart-gold" style="left:'+goldLeft.toFixed(2)+'%;width:'+goldPct.toFixed(2)+'%"></div>' : '';
+    var chip = (l30IsGold(l) && l.streak>0)
+      ? '<div class="l30-chip'+(l.phase==='done'?' crown':'')+'">'+l.streak+'</div>' : '';
     return '<div class="chart-row">'
       +'<div class="chart-name" title="'+p.name+'">'+p.name+'</div>'
-      +'<div class="chart-track"><div class="chart-fill" style="width:'+pct.toFixed(1)+'%"></div></div>'
+      +'<div class="chart-track"><div class="chart-fill" style="width:'+pct.toFixed(1)+'%"></div>'+goldBar+chip+'</div>'
       +'<div class="chart-val-out">'+p.total+'</div>'
       +'</div>';
   }).join('');
@@ -1979,6 +2112,7 @@ function renderTable(){
     return a.name.localeCompare(b.name, 'ko');                    // 모두 같으면 가나다순
   });
 
+  var l30Day = currentDayNum();
   var html=sorted.map(function(p, idx){
     var isAllDone = g_elapsed > 0 && p.total >= g_elapsed; // 휴식권 포함 전일 달성
     var todayCls  = p.todayDone ? 'today-y' : 'today-n';
@@ -1991,13 +2125,17 @@ function renderTable(){
     var rankDisp  = rank; // 항상 숫자
     var rankStyle = rank<=3 ? 'font-size:13px;font-weight:700' : 'color:var(--muted);font-size:12px';
     var nameMedal = isAllDone ? ' <span style="font-size:14px">🏅</span>' : '';
+    // LAST 30 진행 중 / 완주 → 엄지척 (연속이 끊기면 사라짐)
+    var l30p = calcLast30(p, l30Day);
+    var l30Thumb = l30IsGold(l30p)
+      ? ' <span style="font-size:13px" title="LAST 30 '+l30p.streak+'일 연속">👍</span>' : '';
     // 흑기사: 신청(본인 티켓 소모)만 집계 - 실시는 짝꿍을 대신해준 것이므로 카운트 제외
     var bkCls = p.blackKnightUsed ? 'rest-y' : '';
     var bkDisp = p.blackKnightUsed ? '1' : '0';
     var bkTitle = p.blackKnightDate ? ['신청 '+p.blackKnightDate] : [];
     return '<tr class="'+rowCls+'">'
       +'<td style="text-align:center;'+rankStyle+'">'+rankDisp+'</td>'
-      +'<td class="col-name">'+p.name+nameMedal+'</td>'
+      +'<td class="col-name">'+p.name+nameMedal+l30Thumb+'</td>'
       +'<td>'+p.total+'</td>'
       +'<td>'+p.workout+'</td>'
       +'<td>'+p.missed+'</td>'
